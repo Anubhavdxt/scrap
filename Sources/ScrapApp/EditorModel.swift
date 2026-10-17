@@ -6,10 +6,14 @@ final class EditorModel: ObservableObject {
     @Published var text = "" {
         didSet { if text != lastSaved { scheduleSave() } }
     }
+    @Published private(set) var pads: [Pad] = []
+    @Published private(set) var pad: Pad
     @Published private(set) var error: String?
+    @Published var showPalette = false
+    @Published var showRename = false
+    @Published var showDelete = false
 
     private let store: PadStore
-    private var pad: Pad
     private var lastSaved = ""
     private var saveTask: Task<Void, Never>?
     private var watcher: FolderWatcher?
@@ -31,8 +35,9 @@ final class EditorModel: ObservableObject {
         self.text = text
         self.lastSaved = text
         self.error = startupError
+        refreshPads()
         watcher = FolderWatcher(folder: store.folder) { [weak self] in
-            MainActor.assumeIsolated { self?.reloadIfClean() }
+            MainActor.assumeIsolated { self?.folderChanged() }
         }
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
@@ -40,6 +45,50 @@ final class EditorModel: ObservableObject {
             MainActor.assumeIsolated { self?.flush() }
         }
     }
+
+    // MARK: Pads
+
+    func open(_ target: Pad) {
+        flush()
+        guard let content = try? store.read(target) else { return report("Couldn't open \(target.name)") }
+        pad = target
+        lastSaved = content
+        text = content
+    }
+
+    func newPad(named name: String? = nil) {
+        flush()
+        do {
+            let created = try store.create(name: name.map(PadStore.sanitize).flatMap { $0.isEmpty ? nil : $0 } ?? "untitled")
+            refreshPads()
+            open(created)
+        } catch { report(error.localizedDescription) }
+    }
+
+    func rename(to newName: String) {
+        flush()
+        do {
+            pad = try store.rename(pad, to: newName)
+            refreshPads()
+        } catch { report(error.localizedDescription) }
+    }
+
+    func deleteCurrent() {
+        saveTask?.cancel()
+        do {
+            try store.delete(pad)
+            refreshPads()
+            if let next = pads.first { open(next) } else { newPad() }
+        } catch { report("Delete failed: \(error.localizedDescription)") }
+    }
+
+    private func refreshPads() {
+        pads = (try? store.list()) ?? []
+    }
+
+    private func report(_ message: String) { error = message }
+
+    // MARK: Saving
 
     private func scheduleSave() {
         saveTask?.cancel()
@@ -61,8 +110,17 @@ final class EditorModel: ObservableObject {
         }
     }
 
-    /// Picks up external edits (iCloud, other editors) unless there are unsaved local changes.
-    private func reloadIfClean() {
+    // MARK: External changes
+
+    private func folderChanged() {
+        refreshPads()
+        guard FileManager.default.fileExists(atPath: pad.url.path) else {
+            // Current pad vanished (deleted or moved elsewhere).
+            lastSaved = text
+            if let next = pads.first { open(next) } else { newPad() }
+            return
+        }
+        // Pick up external edits unless there are unsaved local changes.
         guard text == lastSaved, let disk = try? store.read(pad), disk != lastSaved else { return }
         lastSaved = disk
         text = disk

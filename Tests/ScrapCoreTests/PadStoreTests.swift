@@ -42,3 +42,30 @@ final class PadStoreTests: XCTestCase {
         XCTAssertTrue(Config.defaultFolder(home: home).path.hasSuffix("CloudDocs/scrap"))
     }
 }
+
+extension PadStoreTests {
+    func testRenameAndCollision() throws {
+        let a = try store.create(name: "a")
+        _ = try store.create(name: "b")
+        let renamed = try store.rename(a, to: " c/d ")
+        XCTAssertEqual(renamed.name, "c-d")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: renamed.url.path))
+        XCTAssertThrowsError(try store.rename(renamed, to: "b"))
+        XCTAssertThrowsError(try store.rename(renamed, to: "  "))
+    }
+
+    func testDeleteRemovesFromList() throws {
+        let a = try store.create(name: "gone")
+        try store.delete(a)
+        XCTAssertTrue(try store.list().isEmpty)
+    }
+}
+
+final class FuzzyTests: XCTestCase {
+    func testMatchingAndRanking() {
+        XCTAssertNil(Fuzzy.score("xyz", in: "meeting notes"))
+        XCTAssertNotNil(Fuzzy.score("mn", in: "meeting notes"))
+        XCTAssertEqual(Fuzzy.rank("note", ["random n o t e", "notes", "my notes"], by: { $0 }).first, "notes")
+        XCTAssertEqual(Fuzzy.rank("", ["b", "a"], by: { $0 }), ["b", "a"])
+    }
+}

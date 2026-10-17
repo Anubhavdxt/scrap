@@ -1,5 +1,17 @@
 import Foundation
 
+public enum PadStoreError: LocalizedError {
+    case invalidName
+    case exists(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidName: "Pad name can't be empty."
+        case .exists(let name): "A pad named \"\(name)\" already exists."
+        }
+    }
+}
+
 public final class PadStore {
     public let folder: URL
     private let fm = FileManager.default
@@ -40,5 +52,29 @@ public final class PadStore {
 
     public func write(_ text: String, to pad: Pad) throws {
         try text.write(to: pad.url, atomically: true, encoding: .utf8)
+    }
+
+    public static func sanitize(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+    }
+
+    public func rename(_ pad: Pad, to newName: String) throws -> Pad {
+        let name = Self.sanitize(newName)
+        guard !name.isEmpty, !name.hasPrefix(".") else { throw PadStoreError.invalidName }
+        let dest = folder.appendingPathComponent("\(name).md")
+        if dest == pad.url { return pad }
+        // Case-only renames are the same file on case-insensitive volumes.
+        if fm.fileExists(atPath: dest.path), dest.path.lowercased() != pad.url.path.lowercased() {
+            throw PadStoreError.exists(name)
+        }
+        try fm.moveItem(at: pad.url, to: dest)
+        return Pad(url: dest, modified: pad.modified)
+    }
+
+    /// Moves the pad to the Trash.
+    public func delete(_ pad: Pad) throws {
+        try fm.trashItem(at: pad.url, resultingItemURL: nil)
     }
 }
