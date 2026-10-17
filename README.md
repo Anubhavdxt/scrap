@@ -42,6 +42,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Go to pad 1–9 | `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
 | Lists | `Return` continues a list (empty item ends it), `Tab` / `⇧Tab` indent, `⌘Return` toggles a `- [ ]` checkbox |
+| Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
 
 Settings has the shortcut recorder, pad count and folder, launch at login, theme, and the opening window size in columns × rows, like a terminal.

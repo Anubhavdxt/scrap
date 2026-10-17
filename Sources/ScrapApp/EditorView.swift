@@ -14,12 +14,34 @@ extension NSColor {
 }
 
 enum EditorFont {
-    static let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+    static let defaultSize: Double = 14
+    static let sizeRange: ClosedRange<Double> = 9...32
+
+    /// `family` empty means the system monospaced font.
+    static func font(size: Double, family: String) -> NSFont {
+        let pt = CGFloat(min(max(size, sizeRange.lowerBound), sizeRange.upperBound))
+        if !family.isEmpty, let font = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: pt) { return font }
+        return .monospacedSystemFont(ofSize: pt, weight: .regular)
+    }
+
+    /// The font from the saved settings (used to size the window in columns and rows).
+    static var current: NSFont {
+        let d = UserDefaults.standard
+        return font(size: d.object(forKey: "fontSize") as? Double ?? defaultSize, family: d.string(forKey: "fontFamily") ?? "")
+    }
+
+    /// Installed monospaced font families.
+    static let families: [String] = NSFontManager.shared.availableFontFamilies.filter {
+        NSFontManager.shared.font(withFamily: $0, traits: [], weight: 5, size: 12)?.isFixedPitch == true
+    }
 }
 
 struct EditorView: NSViewRepresentable {
     @Binding var text: String
     let theme: Theme
+    let fontSize: Double
+    let fontFamily: String
+    let wrap: Bool
 
     private static let maxHighlightLength = 300_000
 
@@ -63,7 +85,7 @@ struct EditorView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: EditorView
         private var appliedTheme: String?
-        private let baseFont = EditorFont.font
+        private var baseFont: NSFont { EditorFont.font(size: parent.fontSize, family: parent.fontFamily) }
 
         var focusObserver: NSObjectProtocol?
         var checklistObserver: NSObjectProtocol?
@@ -108,14 +130,32 @@ struct EditorView: NSViewRepresentable {
         }
 
         func apply(_ theme: Theme, to tv: NSTextView, force: Bool) {
-            guard force || appliedTheme != theme.id else { return }
-            appliedTheme = theme.id
+            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)"
+            guard force || appliedTheme != key else { return }
+            appliedTheme = key
+            setWrap(parent.wrap, in: tv)
             tv.drawsBackground = true
             tv.backgroundColor = NSColor(hex: theme.background)
             tv.insertionPointColor = NSColor(hex: theme.accent)
             tv.selectedTextAttributes = [.backgroundColor: NSColor(hex: theme.accent, alpha: 0.3)]
             tv.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
             highlight(tv)
+        }
+
+        /// Soft-wrap to the view width, or scroll horizontally.
+        private func setWrap(_ on: Bool, in tv: NSTextView) {
+            guard let scroll = tv.enclosingScrollView, let container = tv.textContainer else { return }
+            scroll.hasHorizontalScroller = !on
+            tv.isHorizontallyResizable = !on
+            container.widthTracksTextView = on
+            if on {
+                tv.autoresizingMask = [.width]
+                container.containerSize = NSSize(width: scroll.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+                tv.setFrameSize(NSSize(width: scroll.contentSize.width, height: tv.frame.height))
+            } else {
+                container.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            }
+            tv.needsLayout = true
         }
 
         func highlight(_ tv: NSTextView) {

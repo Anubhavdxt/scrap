@@ -30,6 +30,14 @@ enum MainMenu {
         item(edit, "Paste", #selector(NSText.paste(_:)), "v")
         item(edit, "Select All", #selector(NSText.selectAll(_:)), "a")
 
+        // View
+        let view = submenu(of: main, title: "View")
+        item(view, "Increase Font Size", #selector(Actions.biggerFont), "+", target: Actions.shared)
+        item(view, "Decrease Font Size", #selector(Actions.smallerFont), "-", target: Actions.shared)
+        item(view, "Actual Size", #selector(Actions.resetFont), "0", target: Actions.shared)
+        view.addItem(.separator())
+        item(view, "Wrap Lines", #selector(Actions.toggleWrap), "", target: Actions.shared)
+
         NSApp.mainMenu = main
     }
 
@@ -50,8 +58,23 @@ enum MainMenu {
     }
 
     @MainActor
-    final class Actions: NSObject {
+    final class Actions: NSObject, NSMenuItemValidation {
         static let shared = Actions()
+        private var defaults: UserDefaults { .standard }
+        private var fontSize: Double { defaults.object(forKey: "fontSize") as? Double ?? EditorFont.defaultSize }
+
+        @objc func biggerFont() { defaults.set(min(fontSize + 1, EditorFont.sizeRange.upperBound), forKey: "fontSize") }
+        @objc func smallerFont() { defaults.set(max(fontSize - 1, EditorFont.sizeRange.lowerBound), forKey: "fontSize") }
+        @objc func resetFont() { defaults.set(EditorFont.defaultSize, forKey: "fontSize") }
+        @objc func toggleWrap() { defaults.set(!(defaults.object(forKey: "wrapLines") as? Bool ?? true), forKey: "wrapLines") }
+
+        func validateMenuItem(_ item: NSMenuItem) -> Bool {
+            if item.action == #selector(toggleWrap) {
+                item.state = (defaults.object(forKey: "wrapLines") as? Bool ?? true) ? .on : .off
+            }
+            return true
+        }
+
         @objc func openSettings() { NotificationCenter.default.post(name: .toggleSettings, object: nil) }
         @objc func close() { NotificationCenter.default.post(name: .closePopover, object: nil) }
     }
