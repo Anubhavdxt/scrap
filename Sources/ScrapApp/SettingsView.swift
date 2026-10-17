@@ -4,15 +4,15 @@ import SwiftUI
 
 /// Settings pane shown in a popover attached to the gear. Uses the selected editor theme.
 struct SettingsView: View {
-    static let size = CGSize(width: 440, height: 400)
+    static let size = CGSize(width: 440, height: 420)
 
     private enum Tab: String, CaseIterable, Identifiable {
-        case pads = "Pads", appearance = "Appearance", window = "Window", shortcuts = "Shortcuts"
+        case appearance = "Appearance", general = "General", window = "Window", shortcuts = "Shortcuts"
         var id: String { rawValue }
         var icon: String {
             switch self {
-            case .pads: "square.stack"
-            case .appearance: "circle.lefthalf.filled"
+            case .appearance: "paintpalette"
+            case .general: "slider.horizontal.3"
             case .window: "macwindow"
             case .shortcuts: "command"
             }
@@ -24,8 +24,11 @@ struct SettingsView: View {
     @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
-    @State private var tab = Tab.pads
+    @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
+    @State private var hovered: Tab?
     @Environment(\.colorScheme) private var colorScheme
+
+    private var tab: Tab { Tab(rawValue: tabRaw) ?? .appearance }
 
     private var theme: Theme { resolveTheme(family: family, appearance: appearance, colorScheme: colorScheme) }
     private var bg: Color { Color(nsColor: NSColor(hex: theme.background)) }
@@ -36,20 +39,25 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             tabBar
-            Divider()
+            Divider().opacity(0.6)
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     switch tab {
-                    case .pads: pads
                     case .appearance: look
+                    case .general: general
                     case .window: window
                     case .shortcuts: shortcuts
                     }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .id(tab)
+                .transition(.opacity)
             }
+            Divider().opacity(0.6)
+            footer
         }
+        .background { tabShortcuts }
         .frame(width: Self.size.width, height: Self.size.height)
         .foregroundStyle(fg)
         .tint(accent)
@@ -59,27 +67,68 @@ struct SettingsView: View {
     // MARK: Tabs
 
     private var tabBar: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             ForEach(Tab.allCases) { t in
-                Button { tab = t } label: {
+                let selected = tab == t
+                Button { select(t) } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: t.icon).font(.system(size: 20))
-                        Text(t.rawValue).font(.system(size: 12, weight: .medium))
+                        Image(systemName: t.icon).font(.system(size: 18, weight: .medium))
+                        Text(t.rawValue).font(.system(size: 11.5, weight: selected ? .semibold : .medium))
                     }
-                    .foregroundStyle(tab == t ? accent : dim)
+                    .foregroundStyle(selected ? accent : (hovered == t ? fg : dim))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9)
+                            .fill(selected ? accent.opacity(0.16) : (hovered == t ? fg.opacity(0.07) : .clear))
+                    )
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .onHover { inside in hovered = inside ? t : (hovered == t ? nil : hovered) }
+                .help(t.rawValue)
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(Color.black.opacity(theme.isDark ? 0.18 : 0.05))
     }
 
-    // MARK: Pads
+    private func select(_ t: Tab) {
+        withAnimation(.easeOut(duration: 0.12)) { tabRaw = t.rawValue }
+    }
 
-    private var pads: some View {
+    /// ⌃Tab and ⌃⇧Tab cycle the tabs.
+    private var tabShortcuts: some View {
+        Group {
+            Button("Next tab") { cycle(1) }.keyboardShortcut(.tab, modifiers: .control)
+            Button("Previous tab") { cycle(-1) }.keyboardShortcut(.tab, modifiers: [.control, .shift])
+        }
+        .opacity(0)
+        .allowsHitTesting(false)
+    }
+
+    private func cycle(_ delta: Int) {
+        let all = Tab.allCases
+        let i = all.firstIndex(of: tab) ?? 0
+        select(all[(i + delta + all.count) % all.count])
+    }
+
+    private var footer: some View {
+        HStack {
+            Text("scrap \(Scrap.version)").font(.system(size: 11)).foregroundStyle(dim)
+            Spacer()
+            Button("Quit scrap") { NSApp.terminate(nil) }
+                .controlSize(.small)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.black.opacity(theme.isDark ? 0.18 : 0.05))
+    }
+
+    // MARK: General
+
+    private var general: some View {
         Group {
             row("Pads") {
                 Stepper(value: Binding(get: { model.padCount }, set: { model.setPadCount($0) }), in: 1...Config.maxPads) {
@@ -90,8 +139,6 @@ struct SettingsView: View {
             row("Folder") {
                 Text(Config.folder().path).font(.system(size: 11)).lineLimit(2).textSelection(.enabled)
             }
-            Divider()
-            row("") { Button("Quit scrap") { NSApp.terminate(nil) } }
         }
     }
 

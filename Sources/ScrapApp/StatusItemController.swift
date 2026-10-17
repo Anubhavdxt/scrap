@@ -152,6 +152,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown], handler: { [weak self] _ in
             MainActor.assumeIsolated { self?.closeAll() }
         }) { monitors.append(global) }
+        // A click in the editor popover closes settings only (the gear toggles it itself).
+        if let click = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
+            MainActor.assumeIsolated {
+                guard let self, self.settingsPopover.isShown,
+                      event.window === self.popover.contentViewController?.view.window else { return event }
+                if let anchor = SettingsAnchor.view {
+                    let point = anchor.convert(event.locationInWindow, from: nil)
+                    if anchor.bounds.insetBy(dx: -6, dy: -6).contains(point) { return event }
+                }
+                self.settingsPopover.performClose(nil)
+                return event
+            }
+        }) { monitors.append(click) }
         // Esc closes settings first, then the editor, unless an overlay (palette, clear) is using it.
         if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
             MainActor.assumeIsolated {
