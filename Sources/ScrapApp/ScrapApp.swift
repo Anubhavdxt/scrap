@@ -1,4 +1,5 @@
 import ScrapCore
+import AppKit
 import SwiftUI
 
 enum Appearance: String, CaseIterable, Identifiable {
@@ -28,6 +29,7 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 480, minHeight: 320)
+        .background(WindowAccessor())
         .navigationTitle(model.pad.name)
         .sheet(isPresented: $model.showPalette) { PaletteView(model: model) }
         .sheet(isPresented: $model.showRename) { RenameView(model: model) }
@@ -39,13 +41,23 @@ struct ContentView: View {
 
 @main
 struct ScrapApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var model = EditorModel()
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
 
     var body: some Scene {
-        WindowGroup("scrap") {
+        Window("scrap", id: "main") {
             ContentView(model: model)
+        }
+        MenuBarExtra("scrap", systemImage: "note.text") {
+            Button("Show scrap") { WindowController.shared.show() }
+            Button("New Pad") {
+                model.newPad()
+                WindowController.shared.show()
+            }
+            Divider()
+            Button("Quit scrap") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
         .commands {
             CommandGroup(replacing: .newItem) {
