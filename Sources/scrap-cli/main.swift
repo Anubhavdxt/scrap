@@ -9,6 +9,8 @@ usage: scrap <command>
   show <n>               print pad n
   list                   list the pads with their first lines
   path                   print the pad folder
+  link [--dir <folder>]  link Scrap.app into /Applications (after a Homebrew install)
+  unlink                 remove that link (run before `brew uninstall scrap`)
   --version, --help
 
 Without -p, add fills the last empty pad, or appends to the last pad if none is empty.
@@ -71,6 +73,25 @@ case "show":
     do { print(try store.read(pad), terminator: "") } catch { fail(error.localizedDescription) }
 case "list":
     for pad in openStore().list() { print("\(pad.number)\t\(pad.isEmpty ? "(empty)" : pad.preview)") }
+case "link", "unlink":
+    var folder = "/Applications"
+    if let i = args.firstIndex(of: "--dir") {
+        guard i + 1 < args.count else { fail("--dir needs a folder") }
+        folder = args[i + 1]
+    }
+    let applications = URL(fileURLWithPath: folder)
+    do {
+        if command == "unlink" {
+            print(try AppLinker.unlink(from: applications) ? "removed \(applications.path)/Scrap.app link" : "nothing to remove")
+        } else {
+            let exe = URL(fileURLWithPath: Bundle.main.executablePath ?? CommandLine.arguments[0])
+            guard let app = AppLinker.locateApp(executable: exe) else { throw AppLinker.LinkError.appNotFound }
+            switch try AppLinker.link(app: app, into: applications) {
+            case .linked(let dest), .relinked(let dest): print("linked \(dest.path) -> \(app.path)\nopen it with: open -a Scrap")
+            case .alreadyLinked(let dest): print("already linked: \(dest.path)")
+            }
+        }
+    } catch { fail(error.localizedDescription) }
 case "path":
     print(Config.folder().path)
 case "--version", "-v", "version":

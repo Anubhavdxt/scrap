@@ -6,7 +6,7 @@ A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of
 - **Plain files:** pads are `1.md` … `N.md` in a folder you control, iCloud Drive by default
 - **Markdown:** headings, emphasis, links and fenced code are highlighted
 - **Themes:** 9 editor themes, each in dark and light
-- **CLI:** `scrap add "buy milk"`, `pbpaste | scrap add -p 2`, `scrap show 2`, `scrap list`
+- **CLI:** `scrap add "buy milk"`, `pbpaste | scrap add -p 2`, `scrap show 2`, `scrap list`, `scrap link`
 - **Sync-safe:** if sync leaves a conflicting copy of a pad, both versions are kept
 
 Requires macOS 14 or later.
@@ -17,8 +17,10 @@ Requires macOS 14 or later.
 
     brew tap Anubhavdxt/scrap https://github.com/Anubhavdxt/scrap
     brew install scrap
-    ln -sf "$(brew --prefix scrap)/Scrap.app" /Applications/Scrap.app
+    scrap link
     open -a Scrap
+
+`scrap link` links the app into `/Applications`. It only ever replaces its own link, never a real `Scrap.app`. Run `scrap unlink` before `brew uninstall scrap` to remove it.
 
 Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is built on your Mac, there is no Gatekeeper warning.
 
