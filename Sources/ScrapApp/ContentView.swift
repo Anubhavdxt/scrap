@@ -23,6 +23,9 @@ struct ContentView: View {
     @ObservedObject var model: EditorModel
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
+    @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
+    @AppStorage("fontFamily") private var fontFamily = ""
+    @AppStorage("wrapLines") private var wrapLines = true
     @Environment(\.colorScheme) private var colorScheme
 
     private var theme: Theme { resolveTheme(family: family, appearance: appearance, colorScheme: colorScheme) }
@@ -32,7 +35,7 @@ struct ContentView: View {
             TopBar(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))
             Divider()
-            EditorView(text: $model.text, theme: theme)
+            EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines)
             Divider()
             StatusLine(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))
@@ -61,6 +64,7 @@ struct ContentView: View {
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
             }
             Button("Toggle Checkbox") { NotificationCenter.default.post(name: .toggleChecklist, object: nil) }.keyboardShortcut(.return, modifiers: .command)
+            Button("Increase Font Size") { MainMenu.Actions.shared.biggerFont() }.keyboardShortcut("=")
             Button("Clear Pad") { model.showClear = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
         }
         .opacity(0)

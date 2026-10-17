@@ -24,6 +24,9 @@ struct SettingsView: View {
     @ObservedObject private var hotkeys = HotKeyManager.shared
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
+    @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
+    @AppStorage("fontFamily") private var fontFamily = ""
+    @AppStorage("wrapLines") private var wrapLines = true
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
@@ -200,6 +203,22 @@ struct SettingsView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 12) {
                 ForEach(Themes.families, id: \.id) { f in swatch(f.id, f.name) }
             }
+            Divider().padding(.vertical, 4)
+            Text("Text").font(.system(size: 13, weight: .medium))
+            row("Font") {
+                Picker("", selection: $fontFamily) {
+                    Text("System Mono").tag("")
+                    ForEach(EditorFont.families, id: \.self) { Text($0).tag($0) }
+                }
+                .labelsHidden()
+                .frame(width: 200)
+            }
+            row("Size") {
+                Stepper(value: $fontSize, in: EditorFont.sizeRange, step: 1) { Text("\(Int(fontSize)) pt").monospacedDigit() }
+                if fontSize != EditorFont.defaultSize { Button("Reset") { fontSize = EditorFont.defaultSize }.controlSize(.small) }
+            }
+            row("Wrap lines") { Toggle("", isOn: $wrapLines).labelsHidden().toggleStyle(.switch) }
+            note("⌘+ and ⌘− change the size, ⌘0 resets it. The window grows with the font because its size is in columns and rows.")
         }
     }
 

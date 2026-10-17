@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         MainMenu.install()
+        DispatchQueue.global(qos: .utility).async { _ = EditorFont.families } // warm the font list for Settings
         let model = EditorModel.shared
 
         popover.behavior = .applicationDefined

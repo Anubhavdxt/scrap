@@ -15,7 +15,7 @@ enum WindowSize {
     private static let linePadding: CGFloat = 5 // NSTextContainer lineFragmentPadding, each side
 
     static func contentSize(cols: Int, rows: Int) -> CGSize {
-        let font = EditorFont.font
+        let font = EditorFont.current
         let cell = font.maximumAdvancement.width
         let line = NSLayoutManager().defaultLineHeight(for: font)
         var size = CGSize(
