@@ -69,3 +69,31 @@ final class FuzzyTests: XCTestCase {
         XCTAssertEqual(Fuzzy.rank("", ["b", "a"], by: { $0 }), ["b", "a"])
     }
 }
+
+extension PadStoreTests {
+    func testSuggestedName() {
+        XCTAssertEqual(PadStore.suggestedName(for: "# Buy milk\nand eggs"), "Buy milk")
+        XCTAssertEqual(PadStore.suggestedName(for: "\n\n  a/b: c"), "a-b- c")
+        XCTAssertEqual(PadStore.suggestedName(for: "   \n"), "untitled")
+        XCTAssertEqual(PadStore.suggestedName(for: String(repeating: "x", count: 100)).count, 40)
+        XCTAssertEqual(PadStore.suggestedName(for: "..hidden"), "hidden")
+    }
+
+    func testAddWritesTextAndAvoidsCollisions() throws {
+        let a = try store.add("hello")
+        let b = try store.add("hello")
+        XCTAssertEqual(a.name, "hello")
+        XCTAssertEqual(b.name, "hello 2")
+        XCTAssertEqual(try store.read(a), "hello\n")
+        XCTAssertEqual(try store.add("x", name: "custom").name, "custom")
+    }
+
+    func testConfigFileFolder() throws {
+        let home = dir.appendingPathComponent("home")
+        try FileManager.default.createDirectory(at: Config.configURL(home: home).deletingLastPathComponent(), withIntermediateDirectories: true)
+        try #"{ "folder": "~/notes" }"#.write(to: Config.configURL(home: home), atomically: true, encoding: .utf8)
+        XCTAssertEqual(Config.folder(home: home).lastPathComponent, "notes")
+        try "not json".write(to: Config.configURL(home: home), atomically: true, encoding: .utf8)
+        XCTAssertEqual(Config.folder(home: home), Config.defaultFolder(home: home))
+    }
+}

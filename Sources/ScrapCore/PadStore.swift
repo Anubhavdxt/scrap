@@ -46,6 +46,25 @@ public final class PadStore {
         return Pad(url: url, modified: Date())
     }
 
+    /// Creates a pad holding `text`. The name defaults to one derived from the first line.
+    @discardableResult
+    public func add(_ text: String, name: String? = nil) throws -> Pad {
+        let explicit = name.map(Self.sanitize).flatMap { $0.isEmpty ? nil : $0 }
+        let pad = try create(name: explicit ?? Self.suggestedName(for: text))
+        try write(text.hasSuffix("\n") ? text : text + "\n", to: pad)
+        return pad
+    }
+
+    public static func suggestedName(for text: String) -> String {
+        let firstLine = text.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty } ?? ""
+        var name = sanitize(String(firstLine.drop { $0 == "#" || $0 == ">" || $0 == " " }))
+        name = String(name.prefix(40)).trimmingCharacters(in: .whitespaces)
+        while name.hasPrefix(".") { name.removeFirst() }
+        return name.isEmpty ? "untitled" : name
+    }
+
     public func read(_ pad: Pad) throws -> String {
         try String(contentsOf: pad.url, encoding: .utf8)
     }

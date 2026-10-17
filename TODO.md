@@ -7,8 +7,8 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] 2. Core editor: pads as `.md` files, autosave, file watching (#2)
 - [x] 3. Pads: new, rename, trash, ⌘K quick-switch palette (#4)
 - [x] 4. Markdown highlighting, 18 ported themes (#5)
-- [ ] 5. Global hotkey (⌃⌥Space) and menu bar item
-- [ ] 6. CLI: `scrap add "…"` (argument or stdin), shares folder config with the app
+- [x] 5. Global hotkey (⌃⌥Space) and menu bar item (#6)
+- [x] 6. CLI: `scrap add "…"` (argument or stdin), shares folder config with the app
 - [ ] 7. Sync conflicts: keep both versions when iCloud produces conflicting files
 - [ ] 8. Release: Homebrew tap (build from source), `make install`, README polish
 
