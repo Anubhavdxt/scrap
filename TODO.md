@@ -8,7 +8,8 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] 3. Pads: new, rename, trash, ⌘K quick-switch palette (#4)
 - [x] 4. Markdown highlighting, 18 ported themes (#5)
 - [x] 5. Global hotkey (⌃⌥Space) and menu bar item (#6)
-- [x] 6. CLI: `scrap add "…"` (argument or stdin), shares folder config with the app
+- [x] 6. CLI: `scrap add "…"` (argument or stdin), shares config with the app (#7)
+- [x] 6b. Fixed pads (default 7, configurable 1 to 99, ⌘1–9, clear instead of delete); CLI `add` fills the last empty pad, else appends to the last
 - [ ] 7. Sync conflicts: keep both versions when iCloud produces conflicting files
 - [ ] 8. Release: Homebrew tap (build from source), `make install`, README polish
 
@@ -22,4 +23,5 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 ## Housekeeping
 - [ ] Add a bypass for the repo owner to the `protect-main` ruleset (owner does this in Settings)
 - [ ] Confirm CodeQL results in the Security tab
+- [ ] Optional: one-time import of old named pads (idea.md etc.) into numbered slots
 - [ ] Check the name `scrap` for Homebrew and domain availability

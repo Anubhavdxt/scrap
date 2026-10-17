@@ -8,30 +8,33 @@ final class EditorModel: ObservableObject {
     }
     @Published private(set) var pads: [Pad] = []
     @Published private(set) var pad: Pad
+    @Published private(set) var padCount: Int
     @Published private(set) var error: String?
     @Published var showPalette = false
-    @Published var showRename = false
-    @Published var showDelete = false
+    @Published var showClear = false
 
-    private let store: PadStore
+    private var store: PadStore
     private var lastSaved = ""
     private var saveTask: Task<Void, Never>?
     private var watcher: FolderWatcher?
+    private static let lastPadKey = "lastPad"
 
     init() {
         var startupError: String?
+        let count = Config.padCount()
         var store: PadStore
         do {
-            store = try PadStore(folder: Config.folder())
+            store = try PadStore(folder: Config.folder(), count: count)
         } catch {
             // Fall back to a temp folder so the editor still opens.
             startupError = error.localizedDescription
-            store = try! PadStore(folder: FileManager.default.temporaryDirectory.appendingPathComponent("scrap"))
+            store = try! PadStore(folder: FileManager.default.temporaryDirectory.appendingPathComponent("scrap"), count: count)
         }
-        let pad = (try? store.list().first) ?? (try? store.create()) ?? Pad(url: store.folder.appendingPathComponent("untitled.md"), modified: Date())
+        let pad = store.pad(UserDefaults.standard.integer(forKey: Self.lastPadKey)) ?? store.pad(1)!
         let text = (try? store.read(pad)) ?? ""
         self.store = store
         self.pad = pad
+        self.padCount = store.count
         self.text = text
         self.lastSaved = text
         self.error = startupError
@@ -48,42 +51,44 @@ final class EditorModel: ObservableObject {
 
     // MARK: Pads
 
+    func open(number: Int) {
+        guard let target = store.pad(number) else { return }
+        open(target)
+    }
+
     func open(_ target: Pad) {
         flush()
         guard let content = try? store.read(target) else { return report("Couldn't open \(target.name)") }
         pad = target
+        UserDefaults.standard.set(target.number, forKey: Self.lastPadKey)
         lastSaved = content
         text = content
     }
 
-    func newPad(named name: String? = nil) {
-        flush()
-        do {
-            let created = try store.create(name: name.map(PadStore.sanitize).flatMap { $0.isEmpty ? nil : $0 } ?? "untitled")
-            refreshPads()
-            open(created)
-        } catch { report(error.localizedDescription) }
-    }
-
-    func rename(to newName: String) {
-        flush()
-        do {
-            pad = try store.rename(pad, to: newName)
-            refreshPads()
-        } catch { report(error.localizedDescription) }
-    }
-
-    func deleteCurrent() {
+    func clearCurrent() {
         saveTask?.cancel()
         do {
-            try store.delete(pad)
+            try store.clear(pad)
+            lastSaved = ""
+            text = ""
             refreshPads()
-            if let next = pads.first { open(next) } else { newPad() }
-        } catch { report("Delete failed: \(error.localizedDescription)") }
+        } catch { report("Clear failed: \(error.localizedDescription)") }
+    }
+
+    /// Changes how many pads exist. Pads past the new count are hidden, never deleted.
+    func setPadCount(_ count: Int) {
+        flush()
+        do {
+            try Config.setPadCount(count)
+            store = try PadStore(folder: store.folder, count: Config.padCount())
+            padCount = store.count
+            refreshPads()
+            if pad.number > store.count { open(number: store.count) }
+        } catch { report("Couldn't change pad count: \(error.localizedDescription)") }
     }
 
     private func refreshPads() {
-        pads = (try? store.list()) ?? []
+        pads = store.list()
     }
 
     private func report(_ message: String) { error = message }
@@ -105,6 +110,7 @@ final class EditorModel: ObservableObject {
             try store.write(text, to: pad)
             lastSaved = text
             error = nil
+            refreshPads()
         } catch {
             self.error = "Save failed: \(error.localizedDescription)"
         }
@@ -114,12 +120,6 @@ final class EditorModel: ObservableObject {
 
     private func folderChanged() {
         refreshPads()
-        guard FileManager.default.fileExists(atPath: pad.url.path) else {
-            // Current pad vanished (deleted or moved elsewhere).
-            lastSaved = text
-            if let next = pads.first { open(next) } else { newPad() }
-            return
-        }
         // Pick up external edits unless there are unsaved local changes.
         guard text == lastSaved, let disk = try? store.read(pad), disk != lastSaved else { return }
         lastSaved = disk

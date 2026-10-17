@@ -14,25 +14,52 @@ final class PadStoreTests: XCTestCase {
         try? FileManager.default.removeItem(at: dir)
     }
 
-    func testCreateUniqueNames() throws {
-        let a = try store.create()
-        let b = try store.create()
-        XCTAssertEqual(a.name, "untitled")
-        XCTAssertEqual(b.name, "untitled 2")
+    func testFixedSlots() {
+        XCTAssertEqual(store.list().map(\.number), Array(1...7))
+        XCTAssertTrue(store.list().allSatisfy(\.isEmpty))
+        XCTAssertNil(store.pad(0))
+        XCTAssertNil(store.pad(8))
+        XCTAssertEqual(store.pad(3)?.url.lastPathComponent, "3.md")
     }
 
-    func testWriteReadRoundTrip() throws {
-        let pad = try store.create()
-        try store.write("héllo\n```swift\nlet x = 1\n```", to: pad)
-        XCTAssertEqual(try store.read(pad), "héllo\n```swift\nlet x = 1\n```")
+    func testWriteReadClear() throws {
+        let pad = store.pad(2)!
+        XCTAssertEqual(try store.read(pad), "", "missing file reads as empty")
+        try store.write("# Héllo\nbody", to: pad)
+        XCTAssertEqual(try store.read(pad), "# Héllo\nbody")
+        XCTAssertEqual(store.list()[1].preview, "Héllo")
+        try store.clear(pad)
+        XCTAssertTrue(store.list()[1].isEmpty)
     }
 
-    func testListOnlyMarkdownNewestFirst() throws {
-        let old = try store.create(name: "old")
-        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -100)], ofItemAtPath: old.url.path)
-        _ = try store.create(name: "new")
-        try "x".write(to: dir.appendingPathComponent("ignore.txt"), atomically: true, encoding: .utf8)
-        XCTAssertEqual(try store.list().map(\.name), ["new", "old"])
+    func testAddGoesToLastEmptyPadThenAppendsToLast() throws {
+        XCTAssertEqual(try store.add("a").number, 7)
+        XCTAssertEqual(try store.add("b").number, 6)
+        for n in 1...5 { try store.write("x", to: store.pad(n)!) }
+        XCTAssertEqual(store.addTarget().number, 7)
+        let last = try store.add("c")
+        XCTAssertEqual(last.number, 7)
+        XCTAssertEqual(try store.read(last), "a\n\nc\n")
+    }
+
+    func testAddToExplicitPad() throws {
+        try store.add("one", to: 2)
+        try store.add("two", to: 2)
+        XCTAssertEqual(try store.read(store.pad(2)!), "one\n\ntwo\n")
+        XCTAssertThrowsError(try store.add("x", to: 9))
+    }
+
+    func testCountIsClamped() throws {
+        XCTAssertEqual(try PadStore(folder: dir, count: 0).count, 1)
+        XCTAssertEqual(try PadStore(folder: dir, count: 500).count, Config.maxPads)
+    }
+
+    func testLoweringCountKeepsFiles() throws {
+        try store.write("keep", to: store.pad(7)!)
+        let small = try PadStore(folder: dir, count: 3)
+        XCTAssertEqual(small.list().count, 3)
+        XCTAssertEqual(try store.read(store.pad(7)!), "keep")
+        XCTAssertEqual(try PadStore(folder: dir, count: 7).list()[6].preview, "keep")
     }
 
     func testDefaultFolderUsesICloudWhenPresent() throws {
@@ -41,23 +68,22 @@ final class PadStoreTests: XCTestCase {
         try FileManager.default.createDirectory(at: home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs"), withIntermediateDirectories: true)
         XCTAssertTrue(Config.defaultFolder(home: home).path.hasSuffix("CloudDocs/scrap"))
     }
-}
 
-extension PadStoreTests {
-    func testRenameAndCollision() throws {
-        let a = try store.create(name: "a")
-        _ = try store.create(name: "b")
-        let renamed = try store.rename(a, to: " c/d ")
-        XCTAssertEqual(renamed.name, "c-d")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: renamed.url.path))
-        XCTAssertThrowsError(try store.rename(renamed, to: "b"))
-        XCTAssertThrowsError(try store.rename(renamed, to: "  "))
-    }
-
-    func testDeleteRemovesFromList() throws {
-        let a = try store.create(name: "gone")
-        try store.delete(a)
-        XCTAssertTrue(try store.list().isEmpty)
+    func testConfigFile() throws {
+        let home = dir.appendingPathComponent("home")
+        XCTAssertEqual(Config.padCount(home: home), 7)
+        try Config.setPadCount(12, home: home)
+        XCTAssertEqual(Config.padCount(home: home), 12)
+        var file = Config.loadFile(home: home)
+        file.folder = "~/notes"
+        try Config.save(file, home: home)
+        XCTAssertEqual(Config.folder(home: home).lastPathComponent, "notes")
+        try Config.setPadCount(1000, home: home)
+        XCTAssertEqual(Config.padCount(home: home), Config.maxPads)
+        XCTAssertEqual(Config.loadFile(home: home).folder, "~/notes", "saving keeps other keys")
+        try "not json".write(to: Config.configURL(home: home), atomically: true, encoding: .utf8)
+        XCTAssertEqual(Config.folder(home: home), Config.defaultFolder(home: home))
+        XCTAssertEqual(Config.padCount(home: home), 7)
     }
 }
 
@@ -67,33 +93,5 @@ final class FuzzyTests: XCTestCase {
         XCTAssertNotNil(Fuzzy.score("mn", in: "meeting notes"))
         XCTAssertEqual(Fuzzy.rank("note", ["random n o t e", "notes", "my notes"], by: { $0 }).first, "notes")
         XCTAssertEqual(Fuzzy.rank("", ["b", "a"], by: { $0 }), ["b", "a"])
-    }
-}
-
-extension PadStoreTests {
-    func testSuggestedName() {
-        XCTAssertEqual(PadStore.suggestedName(for: "# Buy milk\nand eggs"), "Buy milk")
-        XCTAssertEqual(PadStore.suggestedName(for: "\n\n  a/b: c"), "a-b- c")
-        XCTAssertEqual(PadStore.suggestedName(for: "   \n"), "untitled")
-        XCTAssertEqual(PadStore.suggestedName(for: String(repeating: "x", count: 100)).count, 40)
-        XCTAssertEqual(PadStore.suggestedName(for: "..hidden"), "hidden")
-    }
-
-    func testAddWritesTextAndAvoidsCollisions() throws {
-        let a = try store.add("hello")
-        let b = try store.add("hello")
-        XCTAssertEqual(a.name, "hello")
-        XCTAssertEqual(b.name, "hello 2")
-        XCTAssertEqual(try store.read(a), "hello\n")
-        XCTAssertEqual(try store.add("x", name: "custom").name, "custom")
-    }
-
-    func testConfigFileFolder() throws {
-        let home = dir.appendingPathComponent("home")
-        try FileManager.default.createDirectory(at: Config.configURL(home: home).deletingLastPathComponent(), withIntermediateDirectories: true)
-        try #"{ "folder": "~/notes" }"#.write(to: Config.configURL(home: home), atomically: true, encoding: .utf8)
-        XCTAssertEqual(Config.folder(home: home).lastPathComponent, "notes")
-        try "not json".write(to: Config.configURL(home: home), atomically: true, encoding: .utf8)
-        XCTAssertEqual(Config.folder(home: home), Config.defaultFolder(home: home))
     }
 }

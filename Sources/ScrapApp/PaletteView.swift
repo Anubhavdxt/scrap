@@ -1,34 +1,19 @@
 import ScrapCore
 import SwiftUI
 
-private enum PaletteItem: Identifiable {
-    case pad(Pad)
-    case create(String)
-
-    var id: String {
-        switch self {
-        case .pad(let p): "pad:\(p.id)"
-        case .create(let n): "create:\(n)"
-        }
-    }
-}
-
 struct PaletteView: View {
     @ObservedObject var model: EditorModel
     @State private var query = ""
     @State private var selection = 0
     @FocusState private var focused: Bool
 
-    private var items: [PaletteItem] {
-        let matches = Fuzzy.rank(query, model.pads, by: \.name).map(PaletteItem.pad)
-        let name = PadStore.sanitize(query)
-        let exact = model.pads.contains { $0.name.lowercased() == name.lowercased() }
-        return name.isEmpty || exact ? matches : matches + [.create(name)]
+    private var items: [Pad] {
+        Fuzzy.rank(query, model.pads, by: { "\($0.number) \($0.preview)" })
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            TextField("Switch to a pad, or type a name to create one", text: $query)
+            TextField("Switch to a pad", text: $query)
                 .textFieldStyle(.plain)
                 .font(.system(.title3, design: .monospaced))
                 .padding(12)
@@ -39,8 +24,8 @@ struct PaletteView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                            row(item, selected: index == selection)
+                        ForEach(Array(items.enumerated()), id: \.element.id) { index, pad in
+                            row(pad, selected: index == selection)
                                 .id(index)
                                 .onTapGesture { selection = index; activate() }
                         }
@@ -56,13 +41,16 @@ struct PaletteView: View {
         .onKeyPress(.escape) { model.showPalette = false; return .handled }
     }
 
-    private func row(_ item: PaletteItem, selected: Bool) -> some View {
-        HStack {
-            switch item {
-            case .pad(let p): Text(p.name)
-            case .create(let n): Text("Create “\(n)”").foregroundStyle(.secondary)
+    private func row(_ pad: Pad, selected: Bool) -> some View {
+        HStack(spacing: 12) {
+            Text("\(pad.number)").foregroundStyle(.secondary).frame(minWidth: 20, alignment: .trailing)
+            if pad.isEmpty {
+                Text("empty").foregroundStyle(.tertiary)
+            } else {
+                Text(pad.preview).lineLimit(1)
             }
             Spacer()
+            if pad.number == model.pad.number { Text("open").font(.caption).foregroundStyle(.secondary) }
         }
         .font(.system(.body, design: .monospaced))
         .padding(.horizontal, 12)
@@ -80,37 +68,26 @@ struct PaletteView: View {
         let list = items
         guard list.indices.contains(selection) else { return }
         model.showPalette = false
-        switch list[selection] {
-        case .pad(let p): model.open(p)
-        case .create(let n): model.newPad(named: n)
-        }
+        model.open(list[selection])
     }
 }
 
-struct RenameView: View {
+struct SettingsView: View {
     @ObservedObject var model: EditorModel
-    @State private var name = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Rename pad").font(.headline)
-            TextField("Name", text: $name)
-                .font(.system(.body, design: .monospaced))
-                .onSubmit(commit)
-            HStack {
-                Spacer()
-                Button("Cancel", role: .cancel) { model.showRename = false }
-                    .keyboardShortcut(.cancelAction)
-                Button("Rename", action: commit).keyboardShortcut(.defaultAction)
-            }
+        Form {
+            Stepper(
+                "Number of pads: \(model.padCount)",
+                value: Binding(get: { model.padCount }, set: { model.setPadCount($0) }),
+                in: 1...Config.maxPads
+            )
+            Text("Lowering this hides pads, it never deletes them.")
+                .font(.caption).foregroundStyle(.secondary)
+            LabeledContent("Folder", value: Config.folder().path)
+                .textSelection(.enabled)
         }
-        .padding(16)
-        .frame(width: 320)
-        .onAppear { name = model.pad.name }
-    }
-
-    private func commit() {
-        model.showRename = false
-        model.rename(to: name)
+        .padding(20)
+        .frame(width: 420)
     }
 }

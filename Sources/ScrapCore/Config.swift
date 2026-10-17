@@ -1,6 +1,9 @@
 import Foundation
 
 public enum Config {
+    public static let defaultPadCount = 7
+    public static let maxPads = 99
+
     /// $HOME when set (so the CLI and tests can be pointed elsewhere), else the user's home directory.
     public static var home: URL {
         ProcessInfo.processInfo.environment["HOME"].map { URL(fileURLWithPath: $0) } ?? FileManager.default.homeDirectoryForCurrentUser
@@ -18,6 +21,7 @@ public enum Config {
     /// Optional settings shared by the app and the CLI, at ~/.config/scrap/config.json.
     public struct File: Codable, Equatable {
         public var folder: String?
+        public var pads: Int?
     }
 
     public static func configURL(home: URL = Config.home) -> URL {
@@ -37,5 +41,25 @@ public enum Config {
             return URL(fileURLWithPath: expanded, relativeTo: home).standardizedFileURL
         }
         return defaultFolder(home: home)
+    }
+
+    /// Number of pads, from the config file (clamped to 1...maxPads), default 7.
+    public static func padCount(home: URL = Config.home) -> Int {
+        min(max(loadFile(home: home).pads ?? defaultPadCount, 1), maxPads)
+    }
+
+    /// Writes the config file, creating ~/.config/scrap if needed.
+    public static func save(_ file: File, home: URL = Config.home) throws {
+        let url = configURL(home: home)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(file).write(to: url, options: .atomic)
+    }
+
+    public static func setPadCount(_ count: Int, home: URL = Config.home) throws {
+        var file = loadFile(home: home)
+        file.pads = min(max(count, 1), maxPads)
+        try save(file, home: home)
     }
 }
