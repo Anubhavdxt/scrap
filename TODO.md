@@ -18,9 +18,9 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 
 ## Later / ideas
 - [ ] Detach/pin the popover into a normal window
-- [ ] Configurable hotkey and pad folder (settings UI + shared config file for the CLI)
+- [x] Configurable hotkey and pad folder (settings UI + shared config file for the CLI)
 - [ ] Optional "say hi" screen; opt-in anonymous ping only after v1
-- [ ] Launch at login
+- [x] Launch at login
 - [ ] Per-language highlighting for fenced code (currently a generic lexer)
 - [ ] Tests for the app target (EditorModel) and a manual QA checklist
 

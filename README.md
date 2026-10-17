@@ -37,13 +37,13 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 
 | | |
 |---|---|
-| Show or hide | `⌃⌥Space`, or click the menu bar icon |
+| Show or hide | `⌃⌥Space` (changeable in Settings), or click the menu bar icon |
 | Quick switch | `⌘K` |
 | Go to pad 1–9 | `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
 
-Settings has the pad count, theme, and the opening window size in columns × rows, like a terminal.
+Settings has the shortcut recorder, pad count and folder, launch at login, theme, and the opening window size in columns × rows, like a terminal.
 
 ## Configuration
 

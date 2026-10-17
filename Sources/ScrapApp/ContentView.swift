@@ -57,7 +57,6 @@ struct ContentView: View {
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
             }
             Button("Clear Pad") { model.showClear = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
-            Button("Settings") { NotificationCenter.default.post(name: .toggleSettings, object: nil) }.keyboardShortcut(",")
         }
         .opacity(0)
         .allowsHitTesting(false)
