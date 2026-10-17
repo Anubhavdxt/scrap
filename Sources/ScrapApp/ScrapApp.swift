@@ -1,15 +1,18 @@
 import SwiftUI
-import ScrapCore
 
 @main
 struct ScrapApp: App {
-    @State private var text = ""
+    @StateObject private var model = EditorModel()
 
     var body: some Scene {
         WindowGroup("scrap") {
-            TextEditor(text: $text)
-                .font(.system(.body, design: .monospaced))
-                .frame(minWidth: 480, minHeight: 320)
+            VStack(spacing: 0) {
+                EditorView(text: $model.text)
+                if let error = model.error {
+                    Text(error).font(.caption).foregroundStyle(.red).padding(6)
+                }
+            }
+            .frame(minWidth: 480, minHeight: 320)
         }
     }
 }
