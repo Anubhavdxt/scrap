@@ -17,6 +17,7 @@ final class EditorModel: ObservableObject {
     @Published private(set) var notice: String?
     @Published var showPalette = false
     @Published var showClear = false
+    @Published var showSayHi: Bool
 
     private var store: PadStore
     private var lastSaved = ""
@@ -45,6 +46,7 @@ final class EditorModel: ObservableObject {
         self.text = text
         self.lastSaved = text
         self.error = startupError
+        self.showSayHi = !UserDefaults.standard.bool(forKey: "sayHiDone")
         resolveConflicts()
         refreshPads()
         startWatching()
@@ -116,6 +118,15 @@ final class EditorModel: ObservableObject {
         watcher = FolderWatcher(folder: store.folder) { [weak self] in
             MainActor.assumeIsolated { self?.folderChanged() }
         }
+    }
+
+    /// Closes the say-hi screen for good. A nil entry means the user skipped.
+    func finishSayHi(_ entry: HelloEntry?) {
+        if let entry {
+            do { try HelloStore().save(entry) } catch { report("Couldn't save your note: \(error.localizedDescription)") }
+        }
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        showSayHi = false
     }
 
     private func refreshPads() {

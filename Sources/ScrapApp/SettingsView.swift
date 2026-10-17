@@ -7,7 +7,7 @@ struct SettingsView: View {
     static let size = CGSize(width: 440, height: 420)
 
     private enum Tab: String, CaseIterable, Identifiable {
-        case appearance = "Appearance", general = "General", window = "Window", shortcuts = "Shortcuts"
+        case appearance = "Appearance", general = "General", window = "Window", shortcuts = "Shortcuts", about = "About"
         var id: String { rawValue }
         var icon: String {
             switch self {
@@ -15,6 +15,7 @@ struct SettingsView: View {
             case .general: "slider.horizontal.3"
             case .window: "macwindow"
             case .shortcuts: "command"
+            case .about: "info.circle"
             }
         }
     }
@@ -50,6 +51,7 @@ struct SettingsView: View {
                     case .general: general
                     case .window: window
                     case .shortcuts: shortcuts
+                    case .about: about
                     }
                 }
                 .padding(20)
@@ -70,13 +72,13 @@ struct SettingsView: View {
     // MARK: Tabs
 
     private var tabBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 2) {
             ForEach(Tab.allCases) { t in
                 let selected = tab == t
                 Button { select(t) } label: {
                     VStack(spacing: 4) {
                         Image(systemName: t.icon).font(.system(size: 18, weight: .medium))
-                        Text(t.rawValue).font(.system(size: 11.5, weight: selected ? .semibold : .medium))
+                        Text(t.rawValue).font(.system(size: 11, weight: selected ? .semibold : .medium))
                     }
                     .foregroundStyle(selected ? accent : (hovered == t ? fg : dim))
                     .frame(maxWidth: .infinity)
@@ -265,6 +267,34 @@ struct SettingsView: View {
             .font(.system(size: 12, design: .monospaced))
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(RoundedRectangle(cornerRadius: 5).fill(dim.opacity(0.2)))
+    }
+
+    // MARK: About
+
+    private var about: some View {
+        Group {
+            HStack(spacing: 14) {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("scrap").font(.system(size: 20, weight: .bold))
+                    Text("Version \(Scrap.version)").font(.system(size: 12)).foregroundStyle(dim)
+                    Text("Free and open source (MIT)").font(.system(size: 12)).foregroundStyle(dim)
+                }
+            }
+            HStack(spacing: 8) {
+                Button("GitHub") { open("https://github.com/Anubhavdxt/scrap") }
+                Button("Report an issue") { open("https://github.com/Anubhavdxt/scrap/issues/new/choose") }
+                Button("Say hi…") {
+                    model.showSayHi = true
+                    NotificationCenter.default.post(name: .toggleSettings, object: nil) // closes this pane
+                }
+            }
+            note("Pads are plain Markdown files, and nothing leaves your Mac.").padding(.leading, 0)
+        }
+    }
+
+    private func open(_ url: String) {
+        if let url = URL(string: url) { NSWorkspace.shared.open(url) }
     }
 
     // MARK: Layout helpers
