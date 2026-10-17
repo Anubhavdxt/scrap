@@ -4,7 +4,7 @@ SWIFTFLAGS ?=
 BUILD = build
 APP = $(BUILD)/Scrap.app
 
-.PHONY: build app install uninstall test clean
+.PHONY: build app install uninstall test clean icons
 
 build:
 	swift build -c release $(SWIFTFLAGS)
@@ -14,6 +14,8 @@ app: build
 	mkdir -p $(APP)/Contents/MacOS
 	cp .build/release/ScrapApp $(APP)/Contents/MacOS/ScrapApp
 	cp Resources/Info.plist $(APP)/Contents/Info.plist
+	mkdir -p $(APP)/Contents/Resources
+	cp Resources/AppIcon.icns Resources/MenuBarIcon.png Resources/MenuBarIcon@2x.png $(APP)/Contents/Resources/
 	codesign --force --sign - $(APP)
 
 install: app
@@ -24,6 +26,14 @@ install: app
 
 uninstall:
 	rm -rf $(APP_DIR)/Scrap.app $(PREFIX)/bin/scrap
+
+# Regenerates the logo assets from scripts/make_icon.swift.
+icons:
+	rm -rf $(BUILD)/icons && mkdir -p $(BUILD)/icons
+	swift scripts/make_icon.swift $(BUILD)/icons
+	iconutil -c icns $(BUILD)/icons/AppIcon.iconset -o Resources/AppIcon.icns
+	cp $(BUILD)/icons/MenuBarIcon.png $(BUILD)/icons/MenuBarIcon@2x.png Resources/
+	cp $(BUILD)/icons/logo.png $(BUILD)/icons/social-preview.png docs/
 
 test:
 	swift test

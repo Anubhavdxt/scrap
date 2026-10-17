@@ -14,6 +14,8 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] 7. Sync conflicts: keep both versions (conflict copies like `3 2.md` merge into the pad, originals archived in `.conflicts/`)
 - [x] 8. Release: Homebrew tap in this repo (`Formula/scrap.rb`), `make install`, README (v0.1.0 released)
 
+- [x] Logo: app icon, menu bar icon, README header, social preview (`make icons`)
+
 ## Later / ideas
 - [ ] Detach/pin the popover into a normal window
 - [ ] Configurable hotkey and pad folder (settings UI + shared config file for the CLI)
