@@ -22,7 +22,7 @@ final class EditorModel: ObservableObject {
         var startupError: String?
         var store: PadStore
         do {
-            store = try PadStore(folder: Config.defaultFolder())
+            store = try PadStore(folder: Config.folder())
         } catch {
             // Fall back to a temp folder so the editor still opens.
             startupError = error.localizedDescription
