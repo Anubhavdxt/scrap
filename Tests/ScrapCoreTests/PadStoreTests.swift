@@ -69,3 +69,16 @@ final class FuzzyTests: XCTestCase {
         XCTAssertEqual(Fuzzy.rank("", ["b", "a"], by: { $0 }), ["b", "a"])
     }
 }
+
+extension PadStoreTests {
+    func testMoveToFolderAvoidsCollisions() throws {
+        let trash = dir.appendingPathComponent("trash")
+        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+        let a = try store.create(name: "note")
+        try store.moveToFolder(a.url, folder: trash)
+        let b = try store.create(name: "note")
+        try store.moveToFolder(b.url, folder: trash)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: trash.path).sorted(), ["note 2.md", "note.md"])
+        XCTAssertTrue(try store.list().isEmpty)
+    }
+}

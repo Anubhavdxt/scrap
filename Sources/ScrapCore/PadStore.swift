@@ -74,7 +74,26 @@ public final class PadStore {
     }
 
     /// Moves the pad to the Trash.
-    public func delete(_ pad: Pad) throws {
-        try fm.trashItem(at: pad.url, resultingItemURL: nil)
+    ///
+    /// `trashItem` fails with a permission error for files in iCloud Drive when the app has no
+    /// Trash access, so fall back to moving the file into ~/.Trash directly.
+    public func delete(_ pad: Pad, trash: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash")) throws {
+        do {
+            try fm.trashItem(at: pad.url, resultingItemURL: nil)
+        } catch {
+            try moveToFolder(pad.url, folder: trash)
+        }
+    }
+
+    func moveToFolder(_ url: URL, folder: URL) throws {
+        let base = url.deletingPathExtension().lastPathComponent
+        let ext = url.pathExtension
+        var dest = folder.appendingPathComponent(url.lastPathComponent)
+        var n = 2
+        while fm.fileExists(atPath: dest.path) {
+            dest = folder.appendingPathComponent("\(base) \(n)").appendingPathExtension(ext)
+            n += 1
+        }
+        try fm.moveItem(at: url, to: dest)
     }
 }
