@@ -17,6 +17,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] Logo: app icon, menu bar icon, README header, social preview (`make icons`)
 
 ## Later / ideas
+- [x] List helpers: Return continues lists, Tab indents, ⌘Return toggles checkboxes
 - [ ] Detach/pin the popover into a normal window
 - [ ] Icon visibility: menu bar / Dock / both (Dock-only needs the window mode above)
 - [x] Configurable hotkey and pad folder (settings UI + shared config file for the CLI)

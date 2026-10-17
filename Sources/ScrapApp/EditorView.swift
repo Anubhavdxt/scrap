@@ -41,6 +41,10 @@ struct EditorView: NSViewRepresentable {
         context.coordinator.focusObserver = NotificationCenter.default.addObserver(forName: .focusEditor, object: nil, queue: .main) { [weak tv] _ in
             tv.flatMap { $0.window?.makeFirstResponder($0) }
         }
+        context.coordinator.checklistObserver = NotificationCenter.default.addObserver(forName: .toggleChecklist, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] _ in
+            guard let tv, tv.window?.isKeyWindow == true else { return }
+            coordinator?.apply(ListEditing.toggleChecklist(in: tv.string, selection: tv.selectedRange()), to: tv)
+        }
         return scroll
     }
 
@@ -62,15 +66,45 @@ struct EditorView: NSViewRepresentable {
         private let baseFont = EditorFont.font
 
         var focusObserver: NSObjectProtocol?
+        var checklistObserver: NSObjectProtocol?
 
         init(_ parent: EditorView) { self.parent = parent }
 
-        deinit { focusObserver.map(NotificationCenter.default.removeObserver) }
+        deinit {
+            focusObserver.map(NotificationCenter.default.removeObserver)
+            checklistObserver.map(NotificationCenter.default.removeObserver)
+        }
 
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             parent.text = tv.string
             highlight(tv)
+        }
+
+        /// List editing: Return continues a list, Tab and Shift-Tab indent list items.
+        func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            guard !textView.hasMarkedText() else { return false } // let input methods finish composing
+            let text = textView.string, selection = textView.selectedRange()
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)):
+                return apply(ListEditing.returnKey(in: text, selection: selection), to: textView)
+            case #selector(NSResponder.insertTab(_:)):
+                return apply(ListEditing.indent(in: text, selection: selection, outdent: false), to: textView)
+            case #selector(NSResponder.insertBacktab(_:)):
+                return apply(ListEditing.indent(in: text, selection: selection, outdent: true), to: textView)
+            default:
+                return false
+            }
+        }
+
+        /// Applies an edit as one undoable change. Returns whether there was an edit.
+        @discardableResult
+        func apply(_ edit: TextEdit?, to tv: NSTextView) -> Bool {
+            guard let edit, tv.shouldChangeText(in: edit.range, replacementString: edit.replacement) else { return false }
+            tv.textStorage?.replaceCharacters(in: edit.range, with: edit.replacement)
+            tv.didChangeText()
+            tv.setSelectedRange(edit.selection)
+            return true
         }
 
         func apply(_ theme: Theme, to tv: NSTextView, force: Bool) {
