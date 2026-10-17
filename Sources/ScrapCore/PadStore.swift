@@ -1,99 +1,78 @@
 import Foundation
 
 public enum PadStoreError: LocalizedError {
-    case invalidName
-    case exists(String)
+    case noSuchPad(Int, max: Int)
 
     public var errorDescription: String? {
         switch self {
-        case .invalidName: "Pad name can't be empty."
-        case .exists(let name): "A pad named \"\(name)\" already exists."
+        case .noSuchPad(let n, let max): "There is no pad \(n). Pads are numbered 1 to \(max)."
         }
     }
 }
 
+/// A fixed set of numbered pads (1...count) backed by `<n>.md` files. Files are created on first write.
 public final class PadStore {
     public let folder: URL
+    public let count: Int
     private let fm = FileManager.default
 
-    public init(folder: URL) throws {
+    public init(folder: URL, count: Int = Config.defaultPadCount) throws {
         self.folder = folder
+        self.count = min(max(count, 1), Config.maxPads)
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
     }
 
-    /// Pads sorted by most recently modified first.
-    public func list() throws -> [Pad] {
-        let urls = try fm.contentsOfDirectory(
-            at: folder,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        )
-        return urls
-            .filter { $0.pathExtension == "md" }
-            .map { Pad(url: $0, modified: (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) }
-            .sorted { $0.modified > $1.modified }
+    public func pad(_ number: Int) -> Pad? {
+        guard (1...count).contains(number) else { return nil }
+        return Pad(number: number, url: folder.appendingPathComponent("\(number).md"))
     }
 
-    @discardableResult
-    public func create(name: String = "untitled") throws -> Pad {
-        var url = folder.appendingPathComponent("\(name).md")
-        var n = 2
-        while fm.fileExists(atPath: url.path) {
-            url = folder.appendingPathComponent("\(name) \(n).md")
-            n += 1
+    /// All pads in order, with modification date and preview filled in.
+    public func list() -> [Pad] {
+        (1...count).map { n in
+            var pad = pad(n)!
+            if let text = try? read(pad) { pad.preview = Pad.preview(of: text) }
+            pad.modified = (try? pad.url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return pad
         }
-        try Data().write(to: url, options: .atomic)
-        return Pad(url: url, modified: Date())
     }
 
-    /// Creates a pad holding `text`. The name defaults to one derived from the first line.
-    @discardableResult
-    public func add(_ text: String, name: String? = nil) throws -> Pad {
-        let explicit = name.map(Self.sanitize).flatMap { $0.isEmpty ? nil : $0 }
-        let pad = try create(name: explicit ?? Self.suggestedName(for: text))
-        try write(text.hasSuffix("\n") ? text : text + "\n", to: pad)
-        return pad
-    }
-
-    public static func suggestedName(for text: String) -> String {
-        let firstLine = text.split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty } ?? ""
-        var name = sanitize(String(firstLine.drop { $0 == "#" || $0 == ">" || $0 == " " }))
-        name = String(name.prefix(40)).trimmingCharacters(in: .whitespaces)
-        while name.hasPrefix(".") { name.removeFirst() }
-        return name.isEmpty ? "untitled" : name
-    }
-
+    /// Content of the pad; empty if the file doesn't exist yet.
     public func read(_ pad: Pad) throws -> String {
-        try String(contentsOf: pad.url, encoding: .utf8)
+        guard fm.fileExists(atPath: pad.url.path) else { return "" }
+        return try String(contentsOf: pad.url, encoding: .utf8)
     }
 
     public func write(_ text: String, to pad: Pad) throws {
         try text.write(to: pad.url, atomically: true, encoding: .utf8)
     }
 
-    public static func sanitize(_ name: String) -> String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "/", with: "-")
-            .replacingOccurrences(of: ":", with: "-")
+    public func clear(_ pad: Pad) throws {
+        try write("", to: pad)
     }
 
-    public func rename(_ pad: Pad, to newName: String) throws -> Pad {
-        let name = Self.sanitize(newName)
-        guard !name.isEmpty, !name.hasPrefix(".") else { throw PadStoreError.invalidName }
-        let dest = folder.appendingPathComponent("\(name).md")
-        if dest == pad.url { return pad }
-        // Case-only renames are the same file on case-insensitive volumes.
-        if fm.fileExists(atPath: dest.path), dest.path.lowercased() != pad.url.path.lowercased() {
-            throw PadStoreError.exists(name)
+    /// Where `add` goes without an explicit pad: the last empty pad, else the last pad.
+    public func addTarget() -> Pad {
+        list().last { $0.isEmpty } ?? pad(count)!
+    }
+
+    /// Puts `text` in the pad: replaces an empty pad, appends (after a blank line) otherwise.
+    @discardableResult
+    public func add(_ text: String, to number: Int? = nil) throws -> Pad {
+        let target: Pad
+        if let number {
+            guard let p = pad(number) else { throw PadStoreError.noSuchPad(number, max: count) }
+            target = p
+        } else {
+            target = addTarget()
         }
-        try fm.moveItem(at: pad.url, to: dest)
-        return Pad(url: dest, modified: pad.modified)
-    }
-
-    /// Moves the pad to the Trash.
-    public func delete(_ pad: Pad) throws {
-        try fm.trashItem(at: pad.url, resultingItemURL: nil)
+        let body = text.trimmingCharacters(in: .newlines) + "\n"
+        let existing = try read(target)
+        if existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            try write(body, to: target)
+        } else {
+            try write(existing.trimmingCharacters(in: .newlines) + "\n\n" + body, to: target)
+        }
+        return target
     }
 }

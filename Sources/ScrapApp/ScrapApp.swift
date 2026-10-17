@@ -22,19 +22,42 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             EditorView(text: $model.text, theme: theme)
-            if let error = model.error {
-                Text(error).font(.caption).foregroundStyle(.red).padding(6)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(nsColor: NSColor(hex: theme.background)))
+            VStack(spacing: 4) {
+                if let error = model.error {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+                PadDots(model: model, accent: Color(nsColor: NSColor(hex: theme.accent)))
             }
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(Color(nsColor: NSColor(hex: theme.background)))
         }
         .frame(minWidth: 480, minHeight: 320)
         .background(WindowAccessor())
         .navigationTitle(model.pad.name)
         .sheet(isPresented: $model.showPalette) { PaletteView(model: model) }
-        .sheet(isPresented: $model.showRename) { RenameView(model: model) }
-        .confirmationDialog("Move “\(model.pad.name)” to the Trash?", isPresented: $model.showDelete) {
-            Button("Move to Trash", role: .destructive) { model.deleteCurrent() }
+        .confirmationDialog("Clear “\(model.pad.name)”? This can't be undone.", isPresented: $model.showClear) {
+            Button("Clear Pad", role: .destructive) { model.clearCurrent() }
+        }
+    }
+}
+
+struct PadDots: View {
+    @ObservedObject var model: EditorModel
+    let accent: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(model.pads) { pad in
+                let current = pad.number == model.pad.number
+                Circle()
+                    .fill(pad.isEmpty ? Color.clear : accent)
+                    .overlay(Circle().stroke(accent.opacity(current ? 1 : 0.5), lineWidth: current ? 2 : 1))
+                    .frame(width: current ? 11 : 9, height: current ? 11 : 9)
+                    .contentShape(Circle().inset(by: -4))
+                    .help(pad.isEmpty ? "Pad \(pad.number)" : "Pad \(pad.number): \(pad.preview)")
+                    .onTapGesture { model.open(pad) }
+            }
         }
     }
 }
@@ -52,20 +75,21 @@ struct ScrapApp: App {
         }
         MenuBarExtra("scrap", systemImage: "note.text") {
             Button("Show scrap") { WindowController.shared.show() }
-            Button("New Pad") {
-                model.newPad()
-                WindowController.shared.show()
-            }
+            SettingsLink { Text("Settings…") }
             Divider()
             Button("Quit scrap") { NSApp.terminate(nil) }.keyboardShortcut("q")
         }
+        Settings { SettingsView(model: model) }
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New Pad") { model.newPad() }.keyboardShortcut("n")
                 Button("Quick Switch…") { model.showPalette = true }.keyboardShortcut("k")
                 Divider()
-                Button("Rename Pad…") { model.showRename = true }.keyboardShortcut("r")
-                Button("Move Pad to Trash…") { model.showDelete = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
+                ForEach(1...min(model.padCount, 9), id: \.self) { n in
+                    Button("Pad \(n)") { model.open(number: n) }
+                        .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
+                }
+                Divider()
+                Button("Clear Pad…") { model.showClear = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
             }
             CommandMenu("Theme") {
                 Picker("Theme", selection: $family) {
