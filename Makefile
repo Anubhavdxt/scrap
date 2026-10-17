@@ -1,12 +1,13 @@
 PREFIX ?= /usr/local
 APP_DIR ?= /Applications
+SWIFTFLAGS ?=
 BUILD = build
 APP = $(BUILD)/Scrap.app
 
 .PHONY: build app install uninstall test clean
 
 build:
-	swift build -c release
+	swift build -c release $(SWIFTFLAGS)
 
 app: build
 	rm -rf $(APP)

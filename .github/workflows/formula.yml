@@ -1,0 +1,22 @@
+name: Formula
+
+on:
+  pull_request:
+    paths: ["Formula/**", "Makefile", "Package.swift", ".github/workflows/formula.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Audit formula
+        run: |
+          brew tap-new --no-git local/scrap-ci
+          cp Formula/scrap.rb "$(brew --repository local/scrap-ci)/Formula/scrap.rb"
+          brew style local/scrap-ci/scrap
+          brew audit --strict local/scrap-ci/scrap
+      - name: Build the way the formula does
+        run: make app SWIFTFLAGS=--disable-sandbox

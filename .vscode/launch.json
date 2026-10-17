@@ -1,0 +1,44 @@
+{
+  "configurations": [
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:scrap}",
+      "name": "Debug ScrapApp",
+      "target": "ScrapApp",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug ScrapApp"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:scrap}",
+      "name": "Release ScrapApp",
+      "target": "ScrapApp",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release ScrapApp"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:scrap}",
+      "name": "Debug scrap-cli",
+      "target": "scrap-cli",
+      "configuration": "debug",
+      "preLaunchTask": "swift: Build Debug scrap-cli"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:scrap}",
+      "name": "Release scrap-cli",
+      "target": "scrap-cli",
+      "configuration": "release",
+      "preLaunchTask": "swift: Build Release scrap-cli"
+    }
+  ]
+}
