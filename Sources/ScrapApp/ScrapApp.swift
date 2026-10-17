@@ -24,7 +24,6 @@ struct ScrapApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("New Pad") { model.newPad() }.keyboardShortcut("n")
                 Button("Quick Switch…") { model.showPalette = true }.keyboardShortcut("k")
-                Button("Quick Switch… ") { model.showPalette = true }.keyboardShortcut("p")
                 Divider()
                 Button("Rename Pad…") { model.showRename = true }.keyboardShortcut("r")
                 Button("Move Pad to Trash…") { model.showDelete = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
