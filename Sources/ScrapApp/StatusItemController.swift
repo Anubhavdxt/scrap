@@ -5,6 +5,7 @@ extension Notification.Name {
     static let focusEditor = Notification.Name("scrap.focusEditor")
     static let closePopover = Notification.Name("scrap.closePopover")
     static let toggleSettings = Notification.Name("scrap.toggleSettings")
+    static let toggleChecklist = Notification.Name("scrap.toggleChecklist")
 }
 
 /// The gear button registers itself here so the settings popover can attach to it.
