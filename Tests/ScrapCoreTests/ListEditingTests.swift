@@ -113,3 +113,49 @@ final class ListEditingTests: XCTestCase {
         XCTAssertEqual(apply(ListEditing.toggleChecklist(in: text, selection: caret(text, at: at)), to: text)!.0, "- [ ] a\n- [x] b")
     }
 }
+
+extension ListEditingTests {
+    private func returnAt(_ text: String, _ offset: Int) -> (String, NSRange)? {
+        let edit = ListEditing.returnKey(in: text, selection: NSRange(location: offset, length: 0))
+        return edit.map { ((text as NSString).replacingCharacters(in: $0.range, with: $0.replacement), $0.selection) }
+    }
+
+    func testRenumbersItemsBelowAnInsertion() {
+        let text = "1. a\n2. b\n3. c"
+        let (out, sel) = returnAt(text, 4)!
+        XCTAssertEqual(out, "1. a\n2. \n3. b\n4. c")
+        XCTAssertEqual(sel, NSRange(location: ("1. a\n2. " as NSString).length, length: 0))
+    }
+
+    func testRenumberSplitsTheItemAndShiftsTheRest() {
+        let (out, sel) = returnAt("1. hello world\n2. next", 8)!
+        XCTAssertEqual(out, "1. hello\n2.  world\n3. next")
+        XCTAssertEqual(sel, NSRange(location: ("1. hello\n2. " as NSString).length, length: 0))
+    }
+
+    func testRenumberStopsAtTheEndOfTheList() {
+        XCTAssertEqual(returnAt("1. a\n2. b\n\n2. later", 4)!.0, "1. a\n2. \n3. b\n\n2. later", "a blank line ends the list")
+        XCTAssertEqual(returnAt("1. a\n2. b\ntext\n2. later", 4)!.0, "1. a\n2. \n3. b\ntext\n2. later", "plain text ends the list")
+        XCTAssertEqual(returnAt("1) a\n2. b", 4)!.0, "1) a\n2) \n2. b", "another delimiter is another list")
+    }
+
+    func testRenumberSkipsNestedItemsAndIgnoresShallowerOnes() {
+        XCTAssertEqual(returnAt("1. a\n  1. nested\n2. b", 4)!.0, "1. a\n2. \n  1. nested\n3. b")
+        XCTAssertEqual(returnAt("  1. a\n2. outer", 6)!.0, "  1. a\n  2. \n2. outer", "a shallower item is not part of this list")
+    }
+
+    func testRenumberCrossesIntoDoubleDigits() {
+        XCTAssertEqual(returnAt("9. a\n10. b", 4)!.0, "9. a\n10. \n11. b")
+    }
+
+    func testNoRenumberWorkWhenNumbersAlreadyFit() {
+        // An appended item at the end of the list changes nothing below it.
+        XCTAssertEqual(returnAt("1. a\n2. b", 9)!.0, "1. a\n2. b\n3. ")
+        // Bullets are never renumbered.
+        XCTAssertEqual(returnAt("- a\n- b", 3)!.0, "- a\n- \n- b")
+    }
+
+    func testRenumberKeepsTasksAndEdgeOfDocument() {
+        XCTAssertEqual(returnAt("1. [ ] a\n2. [x] b\nend", 8)!.0, "1. [ ] a\n2. [ ] \n3. [x] b\nend")
+    }
+}
