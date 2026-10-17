@@ -15,7 +15,7 @@ struct PaletteView: View {
         VStack(spacing: 0) {
             TextField("Switch to a pad", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(.title3, design: .monospaced))
+                .font(.system(.body, design: .monospaced))
                 .padding(12)
                 .focused($focused)
                 .onSubmit(activate)
@@ -34,7 +34,7 @@ struct PaletteView: View {
                 .onChange(of: selection) { proxy.scrollTo(selection) }
             }
         }
-        .frame(width: 480, height: 320)
+        .frame(width: 340, height: 260)
         .onAppear { focused = true }
         .onKeyPress(.downArrow) { move(1); return .handled }
         .onKeyPress(.upArrow) { move(-1); return .handled }

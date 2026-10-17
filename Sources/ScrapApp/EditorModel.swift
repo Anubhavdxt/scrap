@@ -3,6 +3,8 @@ import ScrapCore
 
 @MainActor
 final class EditorModel: ObservableObject {
+    static let shared = EditorModel()
+
     @Published var text = "" {
         didSet { if text != lastSaved { scheduleSave() } }
     }
