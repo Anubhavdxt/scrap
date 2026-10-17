@@ -12,7 +12,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] 6c. Popover attached to the menu bar icon (Tot-style): coloured pad dots, themed settings popover attached to the gear, window size in columns × rows
 - [x] 6b. Fixed pads (default 7, configurable 1 to 99, ⌘1–9, clear instead of delete); CLI `add` fills the last empty pad, else appends to the last
 - [x] 7. Sync conflicts: keep both versions (conflict copies like `3 2.md` merge into the pad, originals archived in `.conflicts/`)
-- [x] 8. Release: Homebrew tap in this repo (`Formula/scrap.rb`), `make install`, README (v0.1.0 tag and stable formula checksum follow the release)
+- [x] 8. Release: Homebrew tap in this repo (`Formula/scrap.rb`), `make install`, README (v0.1.0 released)
 
 ## Later / ideas
 - [ ] Detach/pin the popover into a normal window
