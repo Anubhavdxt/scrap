@@ -27,6 +27,8 @@ struct SettingsView: View {
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
     @State private var hovered: Tab?
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var loginMessage: String?
     @Environment(\.colorScheme) private var colorScheme
 
     private var tab: Tab { Tab(rawValue: tabRaw) ?? .appearance }
@@ -150,7 +152,22 @@ struct SettingsView: View {
                 }
             }
             note("Pads already in the old folder stay there. Copy them over if you want them.")
+            row("Startup") {
+                Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
+                    .toggleStyle(.checkbox)
+            }
+            if let loginMessage { note(loginMessage) }
         }
+    }
+
+    private func setLaunchAtLogin(_ on: Bool) {
+        do {
+            try LaunchAtLogin.set(on)
+            loginMessage = LaunchAtLogin.needsApproval ? "Approve scrap in System Settings → General → Login Items." : nil
+        } catch {
+            loginMessage = "Couldn't change it: \(error.localizedDescription). This only works for the installed Scrap.app."
+        }
+        launchAtLogin = LaunchAtLogin.isEnabled || LaunchAtLogin.needsApproval
     }
 
     private func chooseFolder() {
