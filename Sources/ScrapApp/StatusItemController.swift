@@ -55,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "scrap")
+        item.button?.image = Self.menuBarImage()
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -64,6 +64,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hotKeys = HotKeyManager.shared
         hotKeys.action = { [weak self] in self?.toggle() }
         hotKeys.start()
+    }
+
+    /// The scrap logo as a template image (macOS tints it). Falls back to a symbol outside an app bundle.
+    private static func menuBarImage() -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18))
+        for name in ["MenuBarIcon", "MenuBarIcon@2x"] {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
+                  let data = try? Data(contentsOf: url), let rep = NSBitmapImageRep(data: data) else { continue }
+            rep.size = NSSize(width: 18, height: 18)
+            image.addRepresentation(rep)
+        }
+        if image.representations.isEmpty {
+            return NSImage(systemSymbolName: "note.text", accessibilityDescription: "scrap") ?? image
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "scrap"
+        return image
     }
 
     private func hosting<V: View>(_ view: V) -> NSHostingController<V> {

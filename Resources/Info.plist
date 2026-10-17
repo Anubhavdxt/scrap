@@ -5,6 +5,7 @@
     <key>CFBundleName</key><string>Scrap</string>
     <key>CFBundleDisplayName</key><string>Scrap</string>
     <key>CFBundleIdentifier</key><string>dev.anubhav.scrap</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleExecutable</key><string>ScrapApp</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.1</string>

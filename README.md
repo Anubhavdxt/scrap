@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.png" width="128" alt="scrap logo"></p>
+
 # scrap
 
 A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of pads (7 by default), plain Markdown files, keyboard-first, themeable. Inspired by Tot, with no paid tier.
@@ -56,6 +58,7 @@ Optional `~/.config/scrap/config.json`, shared by the app and the CLI:
     swift build
     swift test
     make app && open build/Scrap.app
+    make icons   # regenerate the logo assets from scripts/make_icon.swift
 
 Work happens on feature branches and is squash-merged by pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) and [TODO.md](TODO.md).
 
