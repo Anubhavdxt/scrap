@@ -163,6 +163,8 @@ struct StatusLine: View {
             Circle().fill(PadColors.color(for: model.pad.number)).frame(width: 8, height: 8)
             if let error = model.error {
                 Text(error).foregroundStyle(.red).lineLimit(1)
+            } else if let notice = model.notice {
+                Text(notice).foregroundStyle(.orange).lineLimit(1)
             } else {
                 Text(stats)
             }
