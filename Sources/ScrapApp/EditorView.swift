@@ -13,6 +13,10 @@ extension NSColor {
     }
 }
 
+enum EditorFont {
+    static let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+}
+
 struct EditorView: NSViewRepresentable {
     @Binding var text: String
     let theme: Theme
@@ -34,6 +38,9 @@ struct EditorView: NSViewRepresentable {
         tv.textContainerInset = NSSize(width: 12, height: 12)
         tv.string = text
         context.coordinator.apply(theme, to: tv, force: true)
+        context.coordinator.focusObserver = NotificationCenter.default.addObserver(forName: .focusEditor, object: nil, queue: .main) { [weak tv] _ in
+            tv.flatMap { $0.window?.makeFirstResponder($0) }
+        }
         return scroll
     }
 
@@ -52,9 +59,13 @@ struct EditorView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: EditorView
         private var appliedTheme: String?
-        private let baseFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        private let baseFont = EditorFont.font
+
+        var focusObserver: NSObjectProtocol?
 
         init(_ parent: EditorView) { self.parent = parent }
+
+        deinit { focusObserver.map(NotificationCenter.default.removeObserver) }
 
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }

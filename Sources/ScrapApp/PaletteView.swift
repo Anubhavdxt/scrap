@@ -15,7 +15,7 @@ struct PaletteView: View {
         VStack(spacing: 0) {
             TextField("Switch to a pad", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(.title3, design: .monospaced))
+                .font(.system(.body, design: .monospaced))
                 .padding(12)
                 .focused($focused)
                 .onSubmit(activate)
@@ -34,7 +34,7 @@ struct PaletteView: View {
                 .onChange(of: selection) { proxy.scrollTo(selection) }
             }
         }
-        .frame(width: 480, height: 320)
+        .frame(maxWidth: 340, maxHeight: 260)
         .onAppear { focused = true }
         .onKeyPress(.downArrow) { move(1); return .handled }
         .onKeyPress(.upArrow) { move(-1); return .handled }
@@ -69,25 +69,5 @@ struct PaletteView: View {
         guard list.indices.contains(selection) else { return }
         model.showPalette = false
         model.open(list[selection])
-    }
-}
-
-struct SettingsView: View {
-    @ObservedObject var model: EditorModel
-
-    var body: some View {
-        Form {
-            Stepper(
-                "Number of pads: \(model.padCount)",
-                value: Binding(get: { model.padCount }, set: { model.setPadCount($0) }),
-                in: 1...Config.maxPads
-            )
-            Text("Lowering this hides pads, it never deletes them.")
-                .font(.caption).foregroundStyle(.secondary)
-            LabeledContent("Folder", value: Config.folder().path)
-                .textSelection(.enabled)
-        }
-        .padding(20)
-        .frame(width: 420)
     }
 }
