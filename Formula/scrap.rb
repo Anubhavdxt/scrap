@@ -18,8 +18,10 @@ class Scrap < Formula
   def caveats
     <<~EOS
       To use the menu bar app, link it into Applications and open it:
-        ln -sf "#{opt_prefix}/Scrap.app" /Applications/Scrap.app
+        scrap link
         open -a Scrap
+
+      Run `scrap unlink` before `brew uninstall scrap` to remove that link.
 
       Pads live in iCloud Drive/scrap (or ~/Documents/scrap). Change that in
       ~/.config/scrap/config.json:  { "folder": "~/notes", "pads": 7 }
