@@ -34,7 +34,7 @@ struct PaletteView: View {
                 .onChange(of: selection) { proxy.scrollTo(selection) }
             }
         }
-        .frame(width: 340, height: 260)
+        .frame(maxWidth: 340, maxHeight: 260)
         .onAppear { focused = true }
         .onKeyPress(.downArrow) { move(1); return .handled }
         .onKeyPress(.upArrow) { move(-1); return .handled }

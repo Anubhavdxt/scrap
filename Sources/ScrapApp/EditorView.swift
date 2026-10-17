@@ -13,6 +13,10 @@ extension NSColor {
     }
 }
 
+enum EditorFont {
+    static let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+}
+
 struct EditorView: NSViewRepresentable {
     @Binding var text: String
     let theme: Theme
@@ -55,7 +59,7 @@ struct EditorView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: EditorView
         private var appliedTheme: String?
-        private let baseFont = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        private let baseFont = EditorFont.font
 
         var focusObserver: NSObjectProtocol?
 

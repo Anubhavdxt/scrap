@@ -4,24 +4,54 @@ import SwiftUI
 extension Notification.Name {
     static let focusEditor = Notification.Name("scrap.focusEditor")
     static let closePopover = Notification.Name("scrap.closePopover")
+    static let toggleSettings = Notification.Name("scrap.toggleSettings")
 }
 
-/// Menu bar icon plus the popover it drops down, like Tot. Menu-bar-only app (no Dock icon).
+/// The gear button registers itself here so the settings popover can attach to it.
+enum SettingsAnchor {
+    static weak var view: NSView?
+}
+
+/// Menu bar icon, the editor popover it drops down, and a settings popover attached to the gear.
+/// Both popovers stay open together; we handle dismissal ourselves (click elsewhere, Esc, app switch).
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
+    private let settingsPopover = NSPopover()
     private var hotKey: HotKey?
+    private var monitors: [Any] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         let model = EditorModel.shared
 
-        popover.behavior = .transient
-        popover.contentSize = NSSize(width: ContentView.size.width, height: ContentView.size.height)
-        popover.contentViewController = NSHostingController(rootView: ContentView(model: model))
-        NotificationCenter.default.addObserver(forName: NSPopover.willCloseNotification, object: popover, queue: .main) { _ in
-            MainActor.assumeIsolated { model.flush() }
+        popover.behavior = .applicationDefined
+        popover.contentViewController = hosting(ContentView(model: model))
+        settingsPopover.behavior = .applicationDefined
+        settingsPopover.contentViewController = hosting(SettingsView(model: model))
+        settingsPopover.contentSize = SettingsView.size
+        applyLayout()
+
+        let center = NotificationCenter.default
+        center.addObserver(forName: NSPopover.willCloseNotification, object: popover, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                model.flush()
+                self?.settingsPopover.performClose(nil)
+                self?.removeMonitors()
+            }
+        }
+        center.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applyLayout() }
+        }
+        center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeAll() }
+        }
+        center.addObserver(forName: .closePopover, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeAll() }
+        }
+        center.addObserver(forName: .toggleSettings, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.toggleSettings() }
         }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -29,9 +59,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        NotificationCenter.default.addObserver(forName: .closePopover, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.popover.performClose(nil) }
-        }
         statusItem = item
 
         // Control + Option + Space
@@ -40,12 +67,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func hosting<V: View>(_ view: V) -> NSHostingController<V> {
+        let controller = NSHostingController(rootView: view)
+        controller.sizingOptions = [] // the popover's contentSize decides, not the SwiftUI ideal size
+        return controller
+    }
+
+    /// Applies the saved window size and light/dark choice to both popovers.
+    private func applyLayout() {
+        let size = WindowSize.current()
+        if popover.contentSize != size { popover.contentSize = size }
+        let appearance: NSAppearance? = switch UserDefaults.standard.string(forKey: "appearance") {
+        case "dark": NSAppearance(named: .darkAqua)
+        case "light": NSAppearance(named: .aqua)
+        default: nil
+        }
+        popover.appearance = appearance
+        settingsPopover.appearance = appearance
+    }
+
+    // MARK: Status item
+
     @objc private func clicked() {
         if NSApp.currentEvent?.type == .rightMouseUp { showMenu() } else { toggle() }
     }
 
     private func showMenu() {
-        popover.performClose(nil)
+        closeAll()
         let menu = NSMenu()
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
@@ -58,19 +106,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.menu = nil
     }
 
-    @objc private func openSettings() { SettingsWindow.shared.show() }
+    @objc private func openSettings() {
+        if !popover.isShown { show() }
+        if !settingsPopover.isShown { toggleSettings() }
+    }
 
-    @objc func toggle() {
-        if popover.isShown { popover.performClose(nil) } else { show() }
+    // MARK: Show and hide
+
+    private func toggle() {
+        if popover.isShown { closeAll() } else { show() }
     }
 
     private func show() {
         guard let button = statusItem?.button else { return }
+        applyLayout()
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
+        installMonitors()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             NotificationCenter.default.post(name: .focusEditor, object: nil)
         }
+    }
+
+    private func closeAll() {
+        settingsPopover.performClose(nil)
+        popover.performClose(nil)
+    }
+
+    private func toggleSettings() {
+        if settingsPopover.isShown {
+            settingsPopover.performClose(nil)
+            return
+        }
+        if !popover.isShown { show() }
+        guard let anchor = SettingsAnchor.view ?? statusItem?.button else { return }
+        settingsPopover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+    }
+
+    // MARK: Dismissal
+
+    private func installMonitors() {
+        guard monitors.isEmpty else { return }
+        // Clicks in other apps or the menu bar close both popovers.
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown], handler: { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeAll() }
+        }) { monitors.append(global) }
+        // Esc closes settings first, then the editor, unless an overlay (palette, clear) is using it.
+        if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
+            MainActor.assumeIsolated {
+                guard event.keyCode == 53, let self else { return event }
+                let model = EditorModel.shared
+                if model.showPalette || model.showClear { return event }
+                if self.settingsPopover.isShown { self.settingsPopover.performClose(nil) } else { self.closeAll() }
+                return nil
+            }
+        }) { monitors.append(local) }
+    }
+
+    private func removeMonitors() {
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
     }
 }

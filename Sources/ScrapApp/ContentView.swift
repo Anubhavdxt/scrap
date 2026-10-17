@@ -14,18 +14,18 @@ enum PadColors {
     static func color(for number: Int) -> Color { palette[(number - 1) % palette.count] }
 }
 
-struct ContentView: View {
-    static let size = CGSize(width: 380, height: 440)
+func resolveTheme(family: String, appearance: Appearance, colorScheme: ColorScheme) -> Theme {
+    let dark = appearance == .auto ? colorScheme == .dark : appearance == .dark
+    return Themes.theme(family: family, dark: dark)
+}
 
+struct ContentView: View {
     @ObservedObject var model: EditorModel
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
     @Environment(\.colorScheme) private var colorScheme
 
-    private var theme: Theme {
-        let dark = appearance == .auto ? colorScheme == .dark : appearance == .dark
-        return Themes.theme(family: family, dark: dark)
-    }
+    private var theme: Theme { resolveTheme(family: family, appearance: appearance, colorScheme: colorScheme) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,7 +37,7 @@ struct ContentView: View {
             StatusLine(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))
         }
-        .frame(width: Self.size.width, height: Self.size.height)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { shortcuts }
         .overlay { overlays }
         .onChange(of: model.showPalette) { _, open in if !open { refocus() } }
@@ -57,7 +57,7 @@ struct ContentView: View {
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
             }
             Button("Clear Pad") { model.showClear = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
-            Button("Settings") { SettingsWindow.shared.show() }.keyboardShortcut(",")
+            Button("Settings") { NotificationCenter.default.post(name: .toggleSettings, object: nil) }.keyboardShortcut(",")
         }
         .opacity(0)
         .allowsHitTesting(false)
@@ -109,9 +109,10 @@ struct TopBar: View {
                 }
                 .help("Close")
                 Spacer()
-                Button { SettingsWindow.shared.show() } label: {
+                Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
                     Image(systemName: "gearshape")
                 }
+                .background(GearAnchor())
                 .help("Settings (⌘,)")
             }
             .buttonStyle(.plain)
@@ -172,4 +173,14 @@ struct StatusLine: View {
         .padding(.horizontal, 12)
         .frame(height: 24)
     }
+}
+
+/// Lets the settings popover attach to the gear button.
+struct GearAnchor: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async { SettingsAnchor.view = view }
+        return view
+    }
+    func updateNSView(_ view: NSView, context: Context) {}
 }
