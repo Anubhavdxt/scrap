@@ -19,7 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private let settingsPopover = NSPopover()
-    private var hotKey: HotKey?
     private var monitors: [Any] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -62,10 +61,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem = item
 
-        // Control + Option + Space
-        hotKey = HotKey(keyCode: 49, modifiers: 0x1000 | 0x0800) { [weak self] in
-            MainActor.assumeIsolated { self?.toggle() }
-        }
+        let hotKeys = HotKeyManager.shared
+        hotKeys.action = { [weak self] in self?.toggle() }
+        hotKeys.start()
     }
 
     private func hosting<V: View>(_ view: V) -> NSHostingController<V> {
@@ -169,7 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Esc closes settings first, then the editor, unless an overlay (palette, clear) is using it.
         if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
             MainActor.assumeIsolated {
-                guard event.keyCode == 53, let self else { return event }
+                guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
                 let model = EditorModel.shared
                 if model.showPalette || model.showClear { return event }
                 if self.settingsPopover.isShown { self.settingsPopover.performClose(nil) } else { self.closeAll() }

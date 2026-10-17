@@ -37,8 +37,9 @@ public enum Config {
     /// The configured pad folder, or the default one.
     public static func folder(home: URL = Config.home) -> URL {
         if let path = loadFile(home: home).folder?.trimmingCharacters(in: .whitespaces), !path.isEmpty {
-            let expanded = (path as NSString).expandingTildeInPath
-            return URL(fileURLWithPath: expanded, relativeTo: home).standardizedFileURL
+            if path == "~" { return home.standardizedFileURL }
+            if path.hasPrefix("~/") { return home.appendingPathComponent(String(path.dropFirst(2))).standardizedFileURL }
+            return URL(fileURLWithPath: path, relativeTo: home).standardizedFileURL
         }
         return defaultFolder(home: home)
     }
@@ -60,6 +61,17 @@ public enum Config {
     public static func setPadCount(_ count: Int, home: URL = Config.home) throws {
         var file = loadFile(home: home)
         file.pads = min(max(count, 1), maxPads)
+        try save(file, home: home)
+    }
+
+    /// Saves the pad folder (shown with ~ when inside the home folder), or clears it to use the default.
+    public static func setFolder(_ url: URL?, home: URL = Config.home) throws {
+        var file = loadFile(home: home)
+        file.folder = url.map { url in
+            let path = url.standardizedFileURL.path
+            let prefix = home.standardizedFileURL.path + "/"
+            return path.hasPrefix(prefix) ? "~/" + path.dropFirst(prefix.count) : path
+        }
         try save(file, home: home)
     }
 }
