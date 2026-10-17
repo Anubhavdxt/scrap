@@ -138,9 +138,31 @@ struct SettingsView: View {
             }
             note("Lowering this hides pads. It never deletes them.")
             row("Folder") {
-                Text(Config.folder().path).font(.system(size: 11)).lineLimit(2).textSelection(.enabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text((model.folder.path as NSString).abbreviatingWithTildeInPath)
+                        .font(.system(size: 11)).lineLimit(2).textSelection(.enabled)
+                    HStack {
+                        Button("Choose…") { chooseFolder() }.controlSize(.small)
+                        if model.folder != Config.defaultFolder() {
+                            Button("Use default") { model.setFolder(nil) }.controlSize(.small)
+                        }
+                    }
+                }
             }
+            note("Pads already in the old folder stay there. Copy them over if you want them.")
         }
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Use Folder"
+        panel.message = "Choose where scrap keeps its pads (1.md, 2.md, …)"
+        panel.directoryURL = model.folder
+        NSApp.activate(ignoringOtherApps: true)
+        if panel.runModal() == .OK, let url = panel.url { model.setFolder(url) }
     }
 
     // MARK: Appearance
