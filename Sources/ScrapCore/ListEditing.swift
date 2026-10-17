@@ -50,15 +50,59 @@ public enum ListEditing {
         let bullet = lineNS.substring(with: m.range(at: 2))
         let spacing = lineNS.substring(with: m.range(at: 3))
         let next: String
+        var numbered: (value: Int, delimiter: Character)?
         if let last = bullet.last, last == "." || last == ")", let n = Int(bullet.dropLast()) {
             next = "\(n + 1)\(last)"
+            numbered = (n, last)
         } else {
             next = bullet
         }
         let task = m.range(at: 4).location != NSNotFound ? "[ ] " : ""
         let insertion = "\n" + indent + next + spacing + task
-        return TextEdit(range: selection, replacement: insertion,
-                        selection: NSRange(location: selection.location + (insertion as NSString).length, length: 0))
+        let caret = NSRange(location: selection.location + (insertion as NSString).length, length: 0)
+
+        // Inserting into the middle of a numbered list shifts the numbers of the items below.
+        if let numbered, let shifted = renumberedTail(after: line, indent: indent, firstNumber: numbered.value + 2,
+                                                      delimiter: numbered.delimiter, in: ns) {
+            let remainder = ns.substring(with: NSRange(location: selection.location, length: line.range.upperBound - selection.location))
+            let range = NSRange(location: selection.location, length: shifted.end - selection.location)
+            return TextEdit(range: range, replacement: insertion + remainder + shifted.text, selection: caret)
+        }
+        return TextEdit(range: selection, replacement: insertion, selection: caret)
+    }
+
+    /// The lines below `line` with their numbers rewritten to count on from `firstNumber`, up to the end of the list.
+    /// Same-indent items with the same delimiter are renumbered; deeper nested items are passed over; anything else
+    /// (a blank line, plain text, a shallower item) ends the list. nil if nothing needs to change.
+    private static func renumberedTail(after line: Line, indent: String, firstNumber: Int, delimiter: Character,
+                                       in ns: NSString) -> (text: String, end: Int)? {
+        var out = ""
+        var cursor = line.range.upperBound   // index of the line break (or the end of the text)
+        var end = cursor
+        var expected = firstNumber
+        var changed = false
+
+        while cursor < ns.length {
+            let next = self.line(at: cursor + 1, in: ns)
+            guard next.range.location == cursor + 1, let nm = next.match else { break }
+            let nextNS = next.text as NSString
+            let nextIndent = nextNS.substring(with: nm.range(at: 1))
+            var text = next.text
+            if nextIndent == indent {
+                let marker = nextNS.substring(with: nm.range(at: 2))
+                guard marker.last == delimiter, Int(marker.dropLast()) != nil else { break }
+                let renumbered = "\(expected)\(delimiter)"
+                if renumbered != marker { changed = true }
+                text = nextNS.replacingCharacters(in: nm.range(at: 2), with: renumbered)
+                expected += 1
+            } else if nextIndent.count < indent.count {
+                break
+            }
+            out += "\n" + text
+            cursor = next.range.upperBound
+            end = cursor
+        }
+        return changed ? (out, end) : nil
     }
 
     // MARK: Tab and Shift-Tab
