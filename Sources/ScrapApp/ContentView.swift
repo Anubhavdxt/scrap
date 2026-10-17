@@ -42,10 +42,14 @@ struct ContentView: View {
         .overlay { overlays }
         .onChange(of: model.showPalette) { _, open in if !open { refocus() } }
         .onChange(of: model.showClear) { _, open in if !open { refocus() } }
+        .onChange(of: model.showSayHi) { _, open in if !open { refocus() } }
     }
 
     private func refocus() {
-        DispatchQueue.main.async { NotificationCenter.default.post(name: .focusEditor, object: nil) }
+        DispatchQueue.main.async {
+            guard !model.showSayHi else { return }
+            NotificationCenter.default.post(name: .focusEditor, object: nil)
+        }
     }
 
     /// Hidden buttons carry the keyboard shortcuts; the popover has no menu bar of its own.
@@ -63,6 +67,7 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var overlays: some View {
+        if model.showSayHi { SayHiView(model: model, theme: theme) }
         if model.showPalette {
             ZStack {
                 Color.black.opacity(0.3).onTapGesture { model.showPalette = false }

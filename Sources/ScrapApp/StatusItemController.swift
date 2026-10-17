@@ -141,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController?.view.window?.makeKey()
         installMonitors()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard !EditorModel.shared.showSayHi else { return }
             NotificationCenter.default.post(name: .focusEditor, object: nil)
         }
     }
@@ -186,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
                 let model = EditorModel.shared
-                if model.showPalette || model.showClear { return event }
+                if model.showPalette || model.showClear || model.showSayHi { return event }
                 if self.settingsPopover.isShown { self.settingsPopover.performClose(nil) } else { self.closeAll() }
                 return nil
             }

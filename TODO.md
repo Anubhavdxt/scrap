@@ -18,8 +18,11 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 
 ## Later / ideas
 - [ ] Detach/pin the popover into a normal window
+- [ ] Icon visibility: menu bar / Dock / both (Dock-only needs the window mode above)
 - [x] Configurable hotkey and pad folder (settings UI + shared config file for the CLI)
-- [ ] Optional "say hi" screen; opt-in anonymous ping only after v1
+- [x] Optional first-launch "say hi" screen (name, email, suggestions); saved locally in `~/Library/Application Support/scrap/hello.json`, nothing is sent
+- [ ] Backend for say-hi entries (e.g. Supabase table + insert-only policy); must ask for consent again before uploading anything already saved, then flip `sentToServer`
+- [ ] Opt-in anonymous ping only after the above
 - [x] Launch at login
 - [ ] Per-language highlighting for fenced code (currently a generic lexer)
 - [ ] Tests for the app target (EditorModel) and a manual QA checklist
