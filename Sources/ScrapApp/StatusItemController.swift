@@ -3,6 +3,7 @@ import SwiftUI
 
 extension Notification.Name {
     static let focusEditor = Notification.Name("scrap.focusEditor")
+    static let closePopover = Notification.Name("scrap.closePopover")
 }
 
 /// Menu bar icon plus the popover it drops down, like Tot. Menu-bar-only app (no Dock icon).
@@ -26,7 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "note.text", accessibilityDescription: "scrap")
         item.button?.target = self
-        item.button?.action = #selector(toggle)
+        item.button?.action = #selector(clicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        NotificationCenter.default.addObserver(forName: .closePopover, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.popover.performClose(nil) }
+        }
         statusItem = item
 
         // Control + Option + Space
@@ -34,6 +39,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.toggle() }
         }
     }
+
+    @objc private func clicked() {
+        if NSApp.currentEvent?.type == .rightMouseUp { showMenu() } else { toggle() }
+    }
+
+    private func showMenu() {
+        popover.performClose(nil)
+        let menu = NSMenu()
+        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit scrap", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        // Attach the menu only for this click so left-clicks keep toggling the popover.
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)
+        statusItem?.menu = nil
+    }
+
+    @objc private func openSettings() { SettingsWindow.shared.show() }
 
     @objc func toggle() {
         if popover.isShown { popover.performClose(nil) } else { show() }

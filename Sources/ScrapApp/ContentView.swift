@@ -29,16 +29,13 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopBar(model: model, family: $family, appearance: $appearance)
+            TopBar(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))
             Divider()
             EditorView(text: $model.text, theme: theme)
-            if let error = model.error {
-                Text(error).font(.caption).foregroundStyle(.red)
-                    .padding(6)
-                    .frame(maxWidth: .infinity)
-                    .background(Color(nsColor: NSColor(hex: theme.background)))
-            }
+            Divider()
+            StatusLine(model: model)
+                .background(Color(nsColor: NSColor(hex: theme.background)))
         }
         .frame(width: Self.size.width, height: Self.size.height)
         .background { shortcuts }
@@ -60,6 +57,7 @@ struct ContentView: View {
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
             }
             Button("Clear Pad") { model.showClear = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
+            Button("Settings") { SettingsWindow.shared.show() }.keyboardShortcut(",")
         }
         .opacity(0)
         .allowsHitTesting(false)
@@ -101,42 +99,27 @@ struct ContentView: View {
 
 struct TopBar: View {
     @ObservedObject var model: EditorModel
-    @Binding var family: String
-    @Binding var appearance: Appearance
 
     var body: some View {
         ZStack {
             PadDots(model: model)
             HStack {
-                Spacer()
-                Menu {
-                    Picker("Theme", selection: $family) {
-                        ForEach(Themes.families, id: \.id) { Text($0.name).tag($0.id) }
-                    }
-                    .pickerStyle(.inline)
-                    Picker("Appearance", selection: $appearance) {
-                        ForEach(Appearance.allCases) { Text($0.label).tag($0) }
-                    }
-                    .pickerStyle(.inline)
-                    Divider()
-                    Button("Quick Switch…  ⌘K") { model.showPalette = true }
-                    Button("Clear Pad…  ⇧⌘⌫") { model.showClear = true }
-                    Divider()
-                    Button("Settings…") {
-                        NSApp.activate(ignoringOtherApps: true)
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    }
-                    Button("Quit scrap") { NSApp.terminate(nil) }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
+                    Image(systemName: "xmark.circle")
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
+                .help("Close")
+                Spacer()
+                Button { SettingsWindow.shared.show() } label: {
+                    Image(systemName: "gearshape")
+                }
+                .help("Settings (⌘,)")
             }
+            .buttonStyle(.plain)
+            .font(.system(size: 16))
+            .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 10)
-        .frame(height: 32)
+        .frame(height: 34)
     }
 }
 
@@ -144,18 +127,49 @@ struct PadDots: View {
     @ObservedObject var model: EditorModel
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 9) {
             ForEach(model.pads) { pad in
                 let current = pad.number == model.pad.number
                 let color = PadColors.color(for: pad.number)
                 Circle()
-                    .fill(pad.isEmpty ? Color.clear : color)
-                    .overlay(Circle().stroke(color, lineWidth: current ? 2.5 : 1.5))
-                    .frame(width: current ? 14 : 11, height: current ? 14 : 11)
+                    .fill(current ? color : Color.clear)
+                    .overlay(Circle().stroke(color, lineWidth: 2.5))
+                    .overlay {
+                        // A small dot marks a pad that has content.
+                        if !pad.isEmpty && !current { Circle().fill(color).frame(width: 4, height: 4) }
+                    }
+                    .frame(width: 14, height: 14)
                     .contentShape(Circle().inset(by: -4))
                     .help(pad.isEmpty ? "Pad \(pad.number)" : "Pad \(pad.number): \(pad.preview)")
                     .onTapGesture { model.open(pad) }
             }
         }
+    }
+}
+
+struct StatusLine: View {
+    @ObservedObject var model: EditorModel
+
+    private var stats: String {
+        let text = model.text
+        let lines = text.isEmpty ? 0 : text.components(separatedBy: .newlines).count
+        let words = text.split(whereSeparator: \.isWhitespace).count
+        return "\(lines) \(lines == 1 ? "line" : "lines") · \(words) \(words == 1 ? "word" : "words") · \(text.count) characters"
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(PadColors.color(for: model.pad.number)).frame(width: 8, height: 8)
+            if let error = model.error {
+                Text(error).foregroundStyle(.red).lineLimit(1)
+            } else {
+                Text(stats)
+            }
+            Spacer()
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .frame(height: 24)
     }
 }
