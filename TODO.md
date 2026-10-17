@@ -11,7 +11,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] 6. CLI: `scrap add "…"` (argument or stdin), shares config with the app (#7)
 - [x] 6c. Popover attached to the menu bar icon (Tot-style): coloured pad dots, themed settings popover attached to the gear, window size in columns × rows
 - [x] 6b. Fixed pads (default 7, configurable 1 to 99, ⌘1–9, clear instead of delete); CLI `add` fills the last empty pad, else appends to the last
-- [ ] 7. Sync conflicts: keep both versions when iCloud produces conflicting files
+- [x] 7. Sync conflicts: keep both versions (conflict copies like `3 2.md` merge into the pad, originals archived in `.conflicts/`)
 - [ ] 8. Release: Homebrew tap (build from source), `make install`, README polish
 
 ## Later / ideas
@@ -23,6 +23,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [ ] Tests for the app target (EditorModel) and a manual QA checklist
 
 ## Housekeeping
+- [ ] Verify conflict handling on two real Macs (iCloud's conflict file naming is assumed, see ConflictResolver)
 - [ ] Add a bypass for the repo owner to the `protect-main` ruleset (owner does this in Settings)
 - [ ] Confirm CodeQL results in the Security tab
 - [ ] Optional: one-time import of old named pads (idea.md etc.) into numbered slots

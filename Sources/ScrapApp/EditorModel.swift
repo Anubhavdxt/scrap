@@ -12,6 +12,8 @@ final class EditorModel: ObservableObject {
     @Published private(set) var pad: Pad
     @Published private(set) var padCount: Int
     @Published private(set) var error: String?
+    /// A short, non-error message (for example after merging a sync conflict).
+    @Published private(set) var notice: String?
     @Published var showPalette = false
     @Published var showClear = false
 
@@ -19,6 +21,7 @@ final class EditorModel: ObservableObject {
     private var lastSaved = ""
     private var saveTask: Task<Void, Never>?
     private var watcher: FolderWatcher?
+    private var noticeTask: Task<Void, Never>?
     private static let lastPadKey = "lastPad"
 
     init() {
@@ -40,6 +43,7 @@ final class EditorModel: ObservableObject {
         self.text = text
         self.lastSaved = text
         self.error = startupError
+        resolveConflicts()
         refreshPads()
         watcher = FolderWatcher(folder: store.folder) { [weak self] in
             MainActor.assumeIsolated { self?.folderChanged() }
@@ -121,10 +125,28 @@ final class EditorModel: ObservableObject {
     // MARK: External changes
 
     private func folderChanged() {
+        resolveConflicts()
         refreshPads()
         // Pick up external edits unless there are unsaved local changes.
         guard text == lastSaved, let disk = try? store.read(pad), disk != lastSaved else { return }
         lastSaved = disk
         text = disk
+    }
+
+    /// Merges sync conflict copies into their pads, keeping both versions.
+    private func resolveConflicts() {
+        flush() // never merge into a pad that has unsaved edits
+        guard let changed = try? ConflictResolver.resolve(in: store), !changed.isEmpty else { return }
+        let names = changed.map(String.init).joined(separator: ", ")
+        show(notice: changed.count == 1 ? "Sync conflict in pad \(names): kept both versions" : "Sync conflicts in pads \(names): kept both versions")
+    }
+
+    private func show(notice message: String) {
+        notice = message
+        noticeTask?.cancel()
+        noticeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(10))
+            if !Task.isCancelled { self?.notice = nil }
+        }
     }
 }
