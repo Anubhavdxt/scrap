@@ -1,0 +1,44 @@
+import Foundation
+
+public final class PadStore {
+    public let folder: URL
+    private let fm = FileManager.default
+
+    public init(folder: URL) throws {
+        self.folder = folder
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+    }
+
+    /// Pads sorted by most recently modified first.
+    public func list() throws -> [Pad] {
+        let urls = try fm.contentsOfDirectory(
+            at: folder,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )
+        return urls
+            .filter { $0.pathExtension == "md" }
+            .map { Pad(url: $0, modified: (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) }
+            .sorted { $0.modified > $1.modified }
+    }
+
+    @discardableResult
+    public func create(name: String = "untitled") throws -> Pad {
+        var url = folder.appendingPathComponent("\(name).md")
+        var n = 2
+        while fm.fileExists(atPath: url.path) {
+            url = folder.appendingPathComponent("\(name) \(n).md")
+            n += 1
+        }
+        try Data().write(to: url, options: .atomic)
+        return Pad(url: url, modified: Date())
+    }
+
+    public func read(_ pad: Pad) throws -> String {
+        try String(contentsOf: pad.url, encoding: .utf8)
+    }
+
+    public func write(_ text: String, to pad: Pad) throws {
+        try text.write(to: pad.url, atomically: true, encoding: .utf8)
+    }
+}
