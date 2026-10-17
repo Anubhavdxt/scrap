@@ -20,12 +20,15 @@ struct SettingsView: View {
     }
 
     @ObservedObject var model: EditorModel
+    @ObservedObject private var hotkeys = HotKeyManager.shared
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
     @State private var hovered: Tab?
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @State private var loginMessage: String?
     @Environment(\.colorScheme) private var colorScheme
 
     private var tab: Tab { Tab(rawValue: tabRaw) ?? .appearance }
@@ -137,9 +140,46 @@ struct SettingsView: View {
             }
             note("Lowering this hides pads. It never deletes them.")
             row("Folder") {
-                Text(Config.folder().path).font(.system(size: 11)).lineLimit(2).textSelection(.enabled)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text((model.folder.path as NSString).abbreviatingWithTildeInPath)
+                        .font(.system(size: 11)).lineLimit(2).textSelection(.enabled)
+                    HStack {
+                        Button("Choose…") { chooseFolder() }.controlSize(.small)
+                        if model.folder != Config.defaultFolder() {
+                            Button("Use default") { model.setFolder(nil) }.controlSize(.small)
+                        }
+                    }
+                }
             }
+            note("Pads already in the old folder stay there. Copy them over if you want them.")
+            row("Startup") {
+                Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
+                    .toggleStyle(.checkbox)
+            }
+            if let loginMessage { note(loginMessage) }
         }
+    }
+
+    private func setLaunchAtLogin(_ on: Bool) {
+        do {
+            try LaunchAtLogin.set(on)
+            loginMessage = LaunchAtLogin.needsApproval ? "Approve scrap in System Settings → General → Login Items." : nil
+        } catch {
+            loginMessage = "Couldn't change it: \(error.localizedDescription). This only works for the installed Scrap.app."
+        }
+        launchAtLogin = LaunchAtLogin.isEnabled || LaunchAtLogin.needsApproval
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Use Folder"
+        panel.message = "Choose where scrap keeps its pads (1.md, 2.md, …)"
+        panel.directoryURL = model.folder
+        NSApp.activate(ignoringOtherApps: true)
+        if panel.runModal() == .OK, let url = panel.url { model.setFolder(url) }
     }
 
     // MARK: Appearance
@@ -209,7 +249,9 @@ struct SettingsView: View {
 
     private var shortcuts: some View {
         Group {
-            row("Show or hide") { key("⌃⌥Space") }
+            row("Show or hide") { ShortcutRecorder(accent: accent, dim: dim) }
+            if let error = hotkeys.error { note(error).foregroundStyle(.red) }
+            note("Click the shortcut, then press the new keys. Use at least one of ⌃ ⌥ ⌘.")
             row("Quick switch") { key("⌘K") }
             row("Go to pad 1–9") { key("⌘1 – ⌘9") }
             row("Clear pad") { key("⇧⌘⌫") }
@@ -241,5 +283,51 @@ struct SettingsView: View {
             .font(.system(size: 11))
             .foregroundStyle(dim)
             .padding(.leading, 124)
+    }
+}
+
+/// Click, then press a new global shortcut.
+struct ShortcutRecorder: View {
+    let accent: Color
+    let dim: Color
+    @ObservedObject private var manager = HotKeyManager.shared
+    @State private var monitor: Any?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button { manager.isRecording ? stop() : start() } label: {
+                Text(manager.isRecording ? "Press keys…" : manager.label)
+                    .font(.system(size: 12, design: .monospaced))
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .frame(minWidth: 96)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(manager.isRecording ? accent.opacity(0.25) : dim.opacity(0.2)))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(manager.isRecording ? accent : .clear, lineWidth: 1.5))
+            }
+            .buttonStyle(.plain)
+            if !manager.isDefault && !manager.isRecording {
+                Button("Reset") { manager.reset() }.controlSize(.small)
+            }
+        }
+        .onDisappear { stop() }
+    }
+
+    private func start() {
+        manager.isRecording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            MainActor.assumeIsolated {
+                if event.keyCode == 53 { stop(); return nil } // Esc cancels
+                let mods = HotKeyManager.carbonMods(event.modifierFlags)
+                guard mods & (0x1000 | 0x0800 | 0x0100) != 0 else { return nil } // needs ⌃, ⌥ or ⌘
+                manager.set(code: Int(event.keyCode), mods: mods, label: HotKeyManager.label(for: event))
+                stop()
+                return nil
+            }
+        }
+    }
+
+    private func stop() {
+        monitor.map(NSEvent.removeMonitor)
+        monitor = nil
+        manager.isRecording = false
     }
 }

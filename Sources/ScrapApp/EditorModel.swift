@@ -11,6 +11,7 @@ final class EditorModel: ObservableObject {
     @Published private(set) var pads: [Pad] = []
     @Published private(set) var pad: Pad
     @Published private(set) var padCount: Int
+    @Published private(set) var folder: URL
     @Published private(set) var error: String?
     /// A short, non-error message (for example after merging a sync conflict).
     @Published private(set) var notice: String?
@@ -40,14 +41,13 @@ final class EditorModel: ObservableObject {
         self.store = store
         self.pad = pad
         self.padCount = store.count
+        self.folder = store.folder
         self.text = text
         self.lastSaved = text
         self.error = startupError
         resolveConflicts()
         refreshPads()
-        watcher = FolderWatcher(folder: store.folder) { [weak self] in
-            MainActor.assumeIsolated { self?.folderChanged() }
-        }
+        startWatching()
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -91,6 +91,31 @@ final class EditorModel: ObservableObject {
             refreshPads()
             if pad.number > store.count { open(number: store.count) }
         } catch { report("Couldn't change pad count: \(error.localizedDescription)") }
+    }
+
+    /// Switches to another pad folder (nil = the default). Files in the old folder are left where they are.
+    func setFolder(_ url: URL?) {
+        flush()
+        do {
+            try Config.setFolder(url)
+            store = try PadStore(folder: Config.folder(), count: Config.padCount())
+            folder = store.folder
+            startWatching()
+            resolveConflicts()
+            refreshPads()
+            let current = store.pad(pad.number) ?? store.pad(1)!
+            pad = current
+            let content = (try? store.read(current)) ?? ""
+            lastSaved = content
+            text = content
+            error = nil
+        } catch { report("Couldn't change folder: \(error.localizedDescription)") }
+    }
+
+    private func startWatching() {
+        watcher = FolderWatcher(folder: store.folder) { [weak self] in
+            MainActor.assumeIsolated { self?.folderChanged() }
+        }
     }
 
     private func refreshPads() {
