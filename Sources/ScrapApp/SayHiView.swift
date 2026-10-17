@@ -58,6 +58,12 @@ struct SayHiView: View {
                     .lineLimit(2...4)
                 Text("All optional. Nothing is sent anywhere yet: this is saved only on this Mac, and I'll ask again before anything is ever shared.")
                     .font(.system(size: 10.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Text("Or in public:").font(.system(size: 11)).foregroundStyle(.secondary)
+                    link("Say hi", "https://github.com/Anubhavdxt/scrap/discussions/new?category=general&title=Hi%20from%20a%20scrap%20user")
+                    link("Share an idea", "https://github.com/Anubhavdxt/scrap/discussions/new?category=ideas")
+                    link("★ Star", "https://github.com/Anubhavdxt/scrap")
+                }
                 HStack {
                     Button("Skip") { skip() }.keyboardShortcut(.cancelAction)
                     Spacer()
@@ -71,6 +77,15 @@ struct SayHiView: View {
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(radius: 14)
+    }
+
+    private func link(_ title: String, _ url: String) -> some View {
+        Button(title) {
+            model.finishSayHi(nil)
+            if let url = URL(string: url) { NSWorkspace.shared.open(url) }
+        }
+        .buttonStyle(.link)
+        .font(.system(size: 11))
     }
 
     private func skip() { model.finishSayHi(nil) }

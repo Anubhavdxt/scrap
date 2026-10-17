@@ -283,6 +283,7 @@ struct SettingsView: View {
             }
             HStack(spacing: 8) {
                 Button("GitHub") { open("https://github.com/Anubhavdxt/scrap") }
+                Button("Discussions") { open("https://github.com/Anubhavdxt/scrap/discussions") }
                 Button("Report an issue") { open("https://github.com/Anubhavdxt/scrap/issues/new/choose") }
                 Button("Say hi…") {
                     model.showSayHi = true
