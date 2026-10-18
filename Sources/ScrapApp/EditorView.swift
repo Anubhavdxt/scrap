@@ -13,29 +13,6 @@ extension NSColor {
     }
 }
 
-enum EditorFont {
-    static let defaultSize: Double = 14
-    static let sizeRange: ClosedRange<Double> = 9...32
-
-    /// `family` empty means the system monospaced font.
-    static func font(size: Double, family: String) -> NSFont {
-        let pt = CGFloat(min(max(size, sizeRange.lowerBound), sizeRange.upperBound))
-        if !family.isEmpty, let font = NSFontManager.shared.font(withFamily: family, traits: [], weight: 5, size: pt) { return font }
-        return .monospacedSystemFont(ofSize: pt, weight: .regular)
-    }
-
-    /// The font from the saved settings (used to size the window in columns and rows).
-    static var current: NSFont {
-        let d = UserDefaults.standard
-        return font(size: d.object(forKey: "fontSize") as? Double ?? defaultSize, family: d.string(forKey: "fontFamily") ?? "")
-    }
-
-    /// Installed monospaced font families.
-    static let families: [String] = NSFontManager.shared.availableFontFamilies.filter {
-        NSFontManager.shared.font(withFamily: $0, traits: [], weight: 5, size: 12)?.isFixedPitch == true
-    }
-}
-
 struct EditorView: NSViewRepresentable {
     @Binding var text: String
     let theme: Theme
@@ -44,6 +21,12 @@ struct EditorView: NSViewRepresentable {
     let wrap: Bool
     var colorHighlights = true
     var markers = "hide"
+    /// False shows the file as plain text: one monospaced font, every marker visible, nothing drawn.
+    var rendered = true
+    /// Selected text is highlighted in this colour (the current pad's).
+    var selectionColor: NSColor? = nil
+    /// Receives the selection so the footer can count the selected text.
+    var selection: Binding<NSRange>? = nil
 
     private static let maxHighlightLength = 300_000
 
@@ -185,14 +168,14 @@ struct EditorView: NSViewRepresentable {
         }
 
         func apply(_ theme: Theme, to tv: NSTextView, force: Bool) {
-            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)"
+            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)|\(parent.rendered)|\(parent.selectionColor?.description ?? "")"
             guard force || appliedTheme != key else { return }
             appliedTheme = key
             setWrap(parent.wrap, in: tv)
             tv.drawsBackground = true
             tv.backgroundColor = NSColor(hex: theme.background)
             tv.insertionPointColor = NSColor(hex: theme.accent)
-            tv.selectedTextAttributes = [.backgroundColor: NSColor(hex: theme.accent, alpha: 0.3)]
+            tv.selectedTextAttributes = [.backgroundColor: (parent.selectionColor ?? NSColor(hex: theme.accent)).withAlphaComponent(0.35)]
             tv.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
             highlight(tv)
         }
@@ -220,8 +203,8 @@ struct EditorView: NSViewRepresentable {
         private var revealed = NSRange(location: 0, length: 0)
 
         private var style: MarkdownStyle {
-            MarkdownStyle(theme: parent.theme, baseFont: baseFont, colorHighlights: parent.colorHighlights,
-                          markers: MarkerMode(rawValue: parent.markers) ?? .hide)
+            MarkdownStyle(theme: parent.theme, baseFont: baseFont, codeFont: EditorFont.codeFont(size: parent.fontSize, family: parent.fontFamily),
+                          colorHighlights: parent.colorHighlights, markers: MarkerMode(rawValue: parent.markers) ?? .hide)
         }
 
         /// Re-styles the whole text (after an edit or a settings change).
@@ -234,8 +217,16 @@ struct EditorView: NSViewRepresentable {
                 lm.iconSize = (style.baseFont.pointSize * 0.95).rounded()
                 lm.iconAdvance = style.iconAdvance
             }
-            tv.typingAttributes = style.baseAttributes
             let full = NSRange(location: 0, length: storage.length)
+            guard parent.rendered else {
+                // Raw: the file as it is.
+                spans = []
+                spansText = nil
+                tv.typingAttributes = [.font: style.codeFont, .foregroundColor: style.base]
+                MarkdownStyler.applyRaw(to: storage, range: full, style: style)
+                return
+            }
+            tv.typingAttributes = style.baseAttributes
             if storage.length <= EditorView.maxHighlightLength {
                 if spansText != storage.string {
                     spans = MarkdownHighlighter.spans(in: storage.string)
@@ -251,8 +242,13 @@ struct EditorView: NSViewRepresentable {
 
         /// Moving the caret to another paragraph shows that paragraph's Markdown syntax and hides the previous one's.
         func textViewDidChangeSelection(_ notification: Notification) {
-            guard let tv = notification.object as? NSTextView, let storage = tv.textStorage, !spans.isEmpty,
-                  spansText == storage.string else { return }
+            guard let tv = notification.object as? NSTextView, let storage = tv.textStorage else { return }
+            if let binding = parent.selection {
+                let range = tv.selectedRange()
+                // Deferred: this can fire while SwiftUI is updating views.
+                DispatchQueue.main.async { if binding.wrappedValue != range { binding.wrappedValue = range } }
+            }
+            guard parent.rendered, !spans.isEmpty, spansText == storage.string else { return }
             let now = paragraphs(of: tv.selectedRange(), in: storage)
             guard now != revealed else { return }
             let before = revealed

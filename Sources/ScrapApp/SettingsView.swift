@@ -25,7 +25,7 @@ struct SettingsView: View {
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
-    @AppStorage("fontFamily") private var fontFamily = ""
+    @AppStorage("fontFamily") private var fontFamily = EditorFont.systemFamily
     @AppStorage("wrapLines") private var wrapLines = true
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("markers") private var markers = "hide"
@@ -244,12 +244,14 @@ struct SettingsView: View {
             Text("Text").font(.system(size: 13, weight: .medium))
             row("Font") {
                 Picker("", selection: $fontFamily) {
+                    Text("System (proportional)").tag(EditorFont.systemFamily)
                     Text("System Mono").tag("")
                     ForEach(EditorFont.families, id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
                 .frame(width: 200)
             }
+            note("Code, code blocks and raw text are always monospaced.")
             row("Size") {
                 Stepper(value: $fontSize, in: EditorFont.sizeRange, step: 1) { Text("\(Int(fontSize)) pt").monospacedDigit() }
                 if fontSize != EditorFont.defaultSize { Button("Reset") { fontSize = EditorFont.defaultSize }.controlSize(.small) }

@@ -65,9 +65,13 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false
         )
-        // The top bar (pad dots) sits where the title would be, under the traffic lights.
+        // A frameless look like Tot's: no title and no red/yellow/green buttons (the top bar has its own ×). It stays a
+        // real titled window underneath, so it keeps the system shadow, rounded corners and edge resizing.
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            window.standardWindowButton(button)?.isHidden = true
+        }
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.collectionBehavior.insert(.moveToActiveSpace)
