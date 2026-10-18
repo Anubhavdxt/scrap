@@ -30,6 +30,7 @@ struct ContentView: View {
     @AppStorage("wrapLines") private var wrapLines = true
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("markers") private var markers = "hide"
+    @AppStorage("tintFooter") private var tintFooter = true
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scrapWindowed) private var windowed
 
@@ -45,7 +46,7 @@ struct ContentView: View {
                        selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection)
             Divider()
             StatusLine(model: model)
-                .background(Color(nsColor: NSColor(hex: theme.background)))
+                .background(footerBackground)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // In a window the content runs under the (empty, transparent) title strip, so the top bar is the only bar.
@@ -55,6 +56,13 @@ struct ContentView: View {
         .onChange(of: model.showPalette) { _, open in if !open { refocus() } }
         .onChange(of: model.showClear) { _, open in if !open { refocus() } }
         .onChange(of: model.showSayHi) { _, open in if !open { refocus() } }
+    }
+
+    /// The theme's background, with a little of the open pad's colour in it (Settings can turn that off).
+    private var footerBackground: Color {
+        let base = NSColor(hex: theme.background)
+        guard tintFooter else { return Color(nsColor: base) }
+        return Color(nsColor: FooterTint.color(background: base, pad: PadColors.nsColor(for: model.pad.number), strength: theme.isDark ? 0.18 : 0.14))
     }
 
     private func refocus() {
@@ -170,25 +178,34 @@ struct WindowDragHandle: NSViewRepresentable {
 
 struct PadDots: View {
     @ObservedObject var model: EditorModel
+    @State private var hovered: Int?
 
     var body: some View {
-        HStack(spacing: 9) {
-            ForEach(model.pads) { pad in
-                let current = pad.number == model.pad.number
-                let color = PadColors.color(for: pad.number)
-                Circle()
-                    .fill(current ? color : Color.clear)
-                    .overlay(Circle().stroke(color, lineWidth: 2.5))
-                    .overlay {
-                        // A small dot marks a pad that has content.
-                        if !pad.isEmpty && !current { Circle().fill(color).frame(width: 4, height: 4) }
-                    }
-                    .frame(width: 14, height: 14)
-                    .contentShape(Circle().inset(by: -4))
-                    .help(pad.isEmpty ? "Pad \(pad.number)" : "Pad \(pad.number): \(pad.preview)")
-                    .onTapGesture { model.open(pad) }
-            }
+        HStack(spacing: 2) {
+            ForEach(model.pads) { pad in dot(pad) }
         }
+    }
+
+    private func dot(_ pad: Pad) -> some View {
+        let current = pad.number == model.pad.number
+        let color = PadColors.color(for: pad.number)
+        let style = PadDotStyle.make(current: current, empty: pad.isEmpty)
+        return ZStack {
+            if style.halo > 0 { Circle().fill(color.opacity(0.22)).frame(width: style.diameter + style.halo * 2, height: style.diameter + style.halo * 2) }
+            Circle().fill(color.opacity(style.fillOpacity)).frame(width: style.diameter, height: style.diameter)
+            if style.ringWidth > 0 {
+                Circle().strokeBorder(color.opacity(style.ringOpacity), lineWidth: style.ringWidth).frame(width: style.diameter, height: style.diameter)
+            }
+            if style.innerDot > 0 { Circle().fill(color).frame(width: style.innerDot, height: style.innerDot) }
+        }
+        .scaleEffect(hovered == pad.number && !current ? 1.15 : 1)
+        .animation(.easeOut(duration: 0.12), value: hovered)
+        .animation(.spring(duration: 0.25), value: current)
+        .frame(width: PadDotStyle.slot, height: PadDotStyle.slot)
+        .contentShape(Rectangle())
+        .onHover { inside in hovered = inside ? pad.number : (hovered == pad.number ? nil : hovered) }
+        .help(pad.isEmpty ? "Pad \(pad.number)" : "Pad \(pad.number): \(pad.preview)")
+        .onTapGesture { model.open(pad) }
     }
 }
 
