@@ -118,8 +118,10 @@ enum MarkdownStyler {
         guard range.length > 0 else { return }
         storage.enumerateAttribute(.font, in: range, options: []) { value, run, _ in
             let current = (value as? NSFont) ?? style.baseFont
-            let combined = current.fontDescriptor.symbolicTraits.union(traits)
-            let font = NSFont(descriptor: current.fontDescriptor.withSymbolicTraits(combined), size: size ?? current.pointSize) ?? current
+            let font = EditorFont.styled(current,
+                                         bold: traits.contains(.bold) || EditorFont.isBold(current),
+                                         italic: traits.contains(.italic) || EditorFont.isItalic(current),
+                                         size: size)
             storage.addAttribute(.font, value: font, range: run)
         }
     }
