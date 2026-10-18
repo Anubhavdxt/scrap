@@ -78,6 +78,11 @@ final class EditorWindowControllerTests: XCTestCase {
         XCTAssertTrue(window.styleMask.contains(.closable))
         XCTAssertTrue(window.styleMask.contains(.fullSizeContentView), "the top bar sits under the traffic lights")
         XCTAssertEqual(window.title, "Pad 1")
+        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            XCTAssertEqual(window.standardWindowButton(button)?.isHidden, true, "no macOS traffic-light buttons, like Tot")
+        }
+        XCTAssertEqual(window.titleVisibility, .hidden)
+        XCTAssertTrue(window.isMovableByWindowBackground)
         let expected = WindowSize.current()
         XCTAssertEqual(window.contentLayoutRect.size.width, expected.width, accuracy: 2)
         XCTAssertEqual(window.contentLayoutRect.size.height, expected.height, accuracy: 40, "titlebar area is part of the content")
@@ -126,11 +131,12 @@ final class EditorWindowControllerTests: XCTestCase {
     }
 }
 
-/// The windowed layout as a picture (opt-in, like the other snapshots).
+/// The detached window, built by the real controller, as a picture (opt-in, like the other snapshots).
 @MainActor
 final class WindowedSnapshotTests: XCTestCase {
-    func testRenderWindowedLayout() throws {
+    func testRenderTheRealWindow() throws {
         guard let dir = ProcessInfo.processInfo.environment["SCRAP_SNAPSHOT_DIR"] else { throw XCTSkip("set SCRAP_SNAPSHOT_DIR to write snapshots") }
+        _ = NSApplication.shared
         let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-snapw-\(UUID().uuidString)")
         let pads = home.appendingPathComponent("pads")
         try FileManager.default.createDirectory(at: pads, withIntermediateDirectories: true)
@@ -138,19 +144,26 @@ final class WindowedSnapshotTests: XCTestCase {
         setenv("HOME", home.path, 1)
         defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
         try Config.save(Config.File(folder: pads.path, pads: 7), home: home)
-        try "# Window mode\n- [ ] pinned as a window\nsecond line".write(to: pads.appendingPathComponent("1.md"), atomically: true, encoding: .utf8)
+        try "# Window mode\n- [ ] no traffic lights\nsecond line".write(to: pads.appendingPathComponent("1.md"), atomically: true, encoding: .utf8)
         UserDefaults.standard.set(true, forKey: "sayHiDone")
-        defer { UserDefaults.standard.removeObject(forKey: "sayHiDone") }
-        let model = EditorModel()
-        let size = WindowSize.current()
-        let view = NSHostingView(rootView: ContentView(model: model).environment(\.scrapWindowed, true).frame(width: size.width, height: size.height))
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
-        window.contentView = view
-        view.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
-        let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
-        view.cacheDisplay(in: view.bounds, to: rep)
+        UserDefaults.standard.removeObject(forKey: "NSWindow Frame ScrapEditorWindow")
+        defer { UserDefaults.standard.removeObject(forKey: "sayHiDone"); UserDefaults.standard.removeObject(forKey: "NSWindow Frame ScrapEditorWindow") }
+
+        let controller = EditorWindowController(model: EditorModel())
+        controller.show()
+        let window = try XCTUnwrap(controller.window)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        // The whole window, frame included: what you would see on screen.
+        let id = CGWindowID(window.windowNumber)
+        let image = CGWindowListCreateImage(.null, .optionIncludingWindow, id, [.boundsIgnoreFraming])
+        let rep: NSBitmapImageRep
+        if let image { rep = NSBitmapImageRep(cgImage: image) } else {
+            let view = try XCTUnwrap(window.contentView)
+            rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: rep)
+        }
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent("window.png"))
+        controller.hide()
     }
 }

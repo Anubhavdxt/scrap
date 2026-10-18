@@ -30,6 +30,7 @@ struct ContentView: View {
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("markers") private var markers = "hide"
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scrapWindowed) private var windowed
 
     private var theme: Theme { resolveTheme(family: family, appearance: appearance, colorScheme: colorScheme) }
 
@@ -45,6 +46,8 @@ struct ContentView: View {
                 .background(Color(nsColor: NSColor(hex: theme.background)))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // In a window the content runs under the (empty, transparent) title strip, so the top bar is the only bar.
+        .ignoresSafeArea(.container, edges: windowed ? .top : [])
         .background { shortcuts }
         .overlay { overlays }
         .onChange(of: model.showPalette) { _, open in if !open { refocus() } }
@@ -120,15 +123,10 @@ struct TopBar: View {
         ZStack {
             PadDots(model: model)
             HStack(spacing: 12) {
-                if windowed {
-                    // Room for the window's traffic lights, which sit over this bar.
-                    Color.clear.frame(width: 62, height: 1)
-                } else {
-                    Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
-                        Image(systemName: "xmark.circle")
-                    }
-                    .help("Close")
+                Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
+                    Image(systemName: "xmark.circle")
                 }
+                .help(windowed ? "Hide the window" : "Close")
                 Spacer()
                 if canAttach {
                     // Detach the popover into a window, or attach the window back to the menu bar icon.
@@ -149,7 +147,17 @@ struct TopBar: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 34)
+        .background { if windowed { WindowDragHandle() } }
     }
+}
+
+/// Lets the empty parts of the top bar drag the window (the window has no title bar of its own to grab).
+struct WindowDragHandle: NSViewRepresentable {
+    final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+    }
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ view: NSView, context: Context) {}
 }
 
 struct PadDots: View {

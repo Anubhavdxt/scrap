@@ -27,8 +27,8 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 
 ## Detached window, Dock icon
 - [ ] The pin turns the popover into a window of the same size; the pin shows filled and attaches it back; position and size are remembered across hides and relaunches
-- [ ] The window's close button, ⌘W and (with the setting) Esc hide it without losing text; the hotkey, the menu bar icon and the Dock icon bring it back
-- [ ] The traffic lights sit left of the pad dots; dragging the empty top bar moves the window; resizing works, with a sensible minimum
+- [ ] The top bar's ×, ⌘W and (with the setting) Esc hide the window without losing text; the hotkey, the menu bar icon and the Dock icon bring it back
+- [ ] The window has no macOS red/yellow/green buttons and no extra title strip, only the top bar with its × (like Tot); dragging the empty part of the top bar moves it; edges resize it, with a sensible minimum; it has rounded corners and a shadow
 - [ ] Settings > General: "Show in" Menu bar / Dock / Both. Dock-only: no menu bar icon, the window opens at launch, no pin, "Open as a window" is on and greyed out. Both: Dock icon and menu bar icon; the menu bar icon opens the popover or window per the pin. Menu bar: no Dock icon
 - [ ] With a Dock icon the real menu bar shows scrap's menus (Edit, Format, View) and ⌘Q quits; clicking the Dock icon shows the editor
 - [ ] "Keep the window above other windows" floats it; switching between popover and window while open keeps the text and caret
