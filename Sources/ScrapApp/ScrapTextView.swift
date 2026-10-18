@@ -31,13 +31,32 @@ final class ScrapLayoutManager: NSLayoutManager {
         storage.enumerateAttribute(.scrapBlock, in: characters, options: []) { value, range, _ in
             guard value != nil, let rect = fragments(in: range, origin: origin) else { return }
             textColor.withAlphaComponent(0.07).setFill()
-            NSBezierPath(roundedRect: rect.insetBy(dx: -4, dy: -2), xRadius: 6, yRadius: 6).fill()
+            NSBezierPath(roundedRect: rect.insetBy(dx: -4, dy: -5), xRadius: 6, yRadius: 6).fill()
+        }
+        // The language label, at the top-right corner of its panel (like the portfolio's code blocks).
+        storage.enumerateAttribute(.scrapBlockLabel, in: characters, options: []) { value, range, _ in
+            guard let label = value as? String, let block = blockRange(containing: range.location),
+                  let panel = fragments(in: block, origin: origin)?.insetBy(dx: -4, dy: -5) else { return }
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 10.5, weight: .medium),
+                .foregroundColor: textColor.withAlphaComponent(0.55),
+            ]
+            let size = (label as NSString).size(withAttributes: attributes)
+            (label as NSString).draw(at: NSPoint(x: panel.maxX - size.width - 10, y: panel.minY + 4), withAttributes: attributes)
         }
         storage.enumerateAttribute(.scrapQuote, in: characters, options: []) { value, range, _ in
             guard value != nil, let rect = fragments(in: range, origin: origin) else { return }
             accent.withAlphaComponent(0.6).setFill()
             NSBezierPath(roundedRect: NSRect(x: rect.minX + 3, y: rect.minY + 1, width: 3, height: rect.height - 2), xRadius: 1.5, yRadius: 1.5).fill()
         }
+    }
+
+    /// The whole code block (its run of `.scrapBlock` paragraphs) that contains `location`.
+    private func blockRange(containing location: Int) -> NSRange? {
+        guard let storage = textStorage, location < storage.length else { return nil }
+        var range = NSRange(location: 0, length: 0)
+        guard storage.attribute(.scrapBlock, at: location, longestEffectiveRange: &range, in: NSRange(location: 0, length: storage.length)) != nil else { return nil }
+        return range
     }
 
     /// The union of the line fragments holding `characters`, in text view coordinates.

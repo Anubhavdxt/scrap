@@ -4,6 +4,8 @@ import ScrapCore
 extension NSAttributedString.Key {
     /// A paragraph of a fenced code block: the layout manager draws one panel behind a run of these.
     static let scrapBlock = NSAttributedString.Key("scrap.block")
+    /// The language of a code block, on its (hidden) opening fence: drawn in the panel's top-right corner.
+    static let scrapBlockLabel = NSAttributedString.Key("scrap.blockLabel")
     /// A paragraph of a block quote: the layout manager draws a bar beside a run of these.
     static let scrapQuote = NSAttributedString.Key("scrap.quote")
 }
@@ -132,7 +134,17 @@ enum MarkdownStyler {
         let revealed = NSIntersectionRange(paragraphRange, reveal).length > 0 || (reveal.length == 0 && NSLocationInRange(reveal.location, paragraphRange))
         let hidden = style.markers == .hide && !revealed && !span.block
         if span.block {
-            storage.addAttributes([.foregroundColor: style.base.withAlphaComponent(0.4), .font: style.codeFont], range: span.range)
+            if !style.raw && style.markers == .hide && !revealed {
+                // The ``` lines disappear (they collapse to a thin strip of padding) and the language moves to the panel's
+                // top-right corner. They come back when the caret is on one, so the language can be edited.
+                let thin = NSFont.monospacedSystemFont(ofSize: 6, weight: .regular)
+                storage.addAttributes([.foregroundColor: NSColor.clear, .font: thin], range: paragraphRange)
+                if let label = span.blockLabel, !label.isEmpty {
+                    storage.addAttribute(.scrapBlockLabel, value: label, range: NSRange(location: paragraphRange.location, length: 1))
+                }
+            } else {
+                storage.addAttributes([.foregroundColor: style.base.withAlphaComponent(0.4), .font: style.codeFont], range: span.range)
+            }
             storage.addAttribute(.scrapBlock, value: 1, range: paragraphRange)
             let indent = NSMutableParagraphStyle()
             indent.firstLineHeadIndent = 8

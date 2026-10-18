@@ -265,7 +265,7 @@ struct StatusLine: View {
     }
 }
 
-/// Format menu, task and share buttons at the right of the footer (the same commands as the keyboard shortcuts).
+/// Symbols, raw/rendered and share buttons at the right of the footer. Formatting lives in the Format menu and its shortcuts.
 struct FooterButtons: View {
     @ObservedObject var model: EditorModel
     @AppStorage("rendered") private var rendered = true
@@ -276,33 +276,13 @@ struct FooterButtons: View {
                 .background(SymbolButtonAnchor())
                 .help("Bullets, dividers and symbols")
             Button { rendered.toggle() } label: { Image(systemName: rendered ? "eye" : "eye.slash") }
-                .help(rendered ? "Show raw Markdown, with all the marks visible (⌥⌘R)" : "Show rendered text (⌥⌘R)")
-            Menu {
-                Button("Bold  ⌘B") { run(.bold) }
-                Button("Italic  ⌘I") { run(.italic) }
-                Button("Strikethrough  ⇧⌘X") { run(.strikethrough) }
-                Button("Code  ⌘E") { run(.code) }
-                Divider()
-                Button("Divider  ⌃−") { run(.divider) }
-                Button("Check or uncheck task  ⌘↩") { run(.checkbox) }
-            } label: {
-                Image(systemName: "textformat")
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help("Format")
+                .help(rendered ? "Show raw markdown (⌥⌘R)" : "Show rendered text (⌥⌘R)")
             ShareLink(item: model.text) { Image(systemName: "square.and.arrow.up") }
                 .disabled(model.text.isEmpty)
                 .help("Share this pad")
         }
         .buttonStyle(.plain)
         .font(.system(size: 12))
-    }
-
-    private func run(_ command: EditorCommand) {
-        command.post()
-        DispatchQueue.main.async { NotificationCenter.default.post(name: .focusEditor, object: nil) }
     }
 }
 

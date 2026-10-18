@@ -163,3 +163,44 @@ final class NestedEmphasisTests: XCTestCase {
         XCTAssertTrue(both[0].bold && both[0].italic)
     }
 }
+
+final class CodeBlockLabelTests: XCTestCase {
+    private func labels(_ source: String) -> [String?] {
+        MarkdownHighlighter.spans(in: source).filter { $0.syntax && $0.block }.map(\.blockLabel)
+    }
+
+    func testTheOpeningFenceCarriesTheLanguage() {
+        XCTAssertEqual(labels("```swift\nlet a = 1\n```"), ["swift", nil], "the closing fence has none")
+        XCTAssertEqual(labels("~~~python\nx\n~~~"), ["python", nil])
+        XCTAssertEqual(labels("```js\n```"), ["js", nil])
+    }
+
+    func testOnlyTheFirstWordOfTheInfoStringIsTheLabel() {
+        XCTAssertEqual(labels("```python {linenos}\nx\n```").first ?? nil, "python")
+        XCTAssertEqual(labels("```ts  extra words\nx\n```").first ?? nil, "ts")
+    }
+
+    func testNoLanguageMeansNoLabel() {
+        XCTAssertEqual(labels("```\nplain\n```"), [nil, nil])
+        XCTAssertEqual(labels("```   \nplain\n```"), [nil, nil])
+    }
+
+    func testEachBlockGetsItsOwnLabel() {
+        XCTAssertEqual(labels("```js\na\n```\ntext\n```sh\nb\n```"), ["js", nil, "sh", nil])
+    }
+
+    func testNothingInsideACodeBlockIsALabel() {
+        XCTAssertEqual(labels("```js\n```swift\nnot a fence\n```"), ["js", nil], "a fence line inside a block closes it, it doesn't open another")
+    }
+
+    func testAShorterFenceInsideALongerBlockIsJustCode() {
+        let source = "````md\n```js\ninner\n```\n````\nafter"
+        let spans = MarkdownHighlighter.spans(in: source)
+        let ns = source as NSString
+        let fences = spans.filter { $0.syntax && $0.block }.map { ns.substring(with: $0.range) }
+        XCTAssertEqual(fences, ["````md", "````"], "only the outer fences are fences")
+        let code = spans.filter { $0.block && !$0.syntax }.map { ns.substring(with: $0.range) }
+        XCTAssertEqual(code, ["```js", "inner", "```"], "the inner ones are code lines")
+        XCTAssertNil(spans.first { $0.range.location == ns.range(of: "after").location }?.blockLabel)
+    }
+}

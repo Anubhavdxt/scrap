@@ -932,3 +932,81 @@ final class SymbolPopoverPlacementTests: XCTestCase {
         XCTAssertEqual(picker.midX, anchor.convert(anchor.bounds, to: nil).midX + editor.minX, accuracy: 40, "under the * button")
     }
 }
+
+/// The code block's look: no visible backticks, the language at the top right.
+@MainActor
+final class CodeBlockLookTests: XCTestCase {
+    private func editor(_ text: String, markers: String = "hide", rendered: Bool = true, caretAtEnd: Bool = true) -> NSTextView {
+        let theme = Themes.all.first { $0.id == "cobalt2-dark" }!
+        let view = NSHostingView(rootView: EditorView(text: .constant(text), theme: theme, fontSize: 14, fontFamily: "system", wrap: true,
+                                                      markers: markers, rendered: rendered).frame(width: 520, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        func find(_ v: NSView) -> NSTextView? { (v as? NSTextView) ?? v.subviews.lazy.compactMap(find).first }
+        let tv = find(view)!
+        if caretAtEnd { tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0)) }
+        _ = window
+        return tv
+    }
+
+    private let source = "intro\n```js\nconst add = (a, b) => a + b;\n```\nafter"
+
+    private func attrs(_ tv: NSTextView, _ needle: String, offset: Int = 0) -> [NSAttributedString.Key: Any] {
+        tv.textStorage!.attributes(at: (tv.string as NSString).range(of: needle).location + offset, effectiveRange: nil)
+    }
+
+    func testTheFencesDisappearAndTheLanguageMovesToTheCorner() {
+        let tv = editor(source)
+        let open = attrs(tv, "```js"), close = attrs(tv, "```\nafter")
+        for fence in [open, close] {
+            XCTAssertEqual((fence[.foregroundColor] as? NSColor)?.alphaComponent, 0, "the backticks are invisible")
+            XCTAssertLessThan((fence[.font] as? NSFont)?.pointSize ?? 99, 8, "and the line collapses to a thin strip")
+            XCTAssertNotNil(fence[.scrapBlock], "but it is still part of the panel")
+        }
+        XCTAssertEqual(open[.scrapBlockLabel] as? String, "js", "the language is kept to draw in the corner")
+        XCTAssertNil(close[.scrapBlockLabel], "only the opening fence has one")
+        let code = attrs(tv, "const")
+        XCTAssertGreaterThan((code[.foregroundColor] as? NSColor)?.alphaComponent ?? 0, 0.9, "the code itself is untouched")
+        XCTAssertTrue((code[.font] as? NSFont)?.isFixedPitch == true)
+        XCTAssertEqual(tv.string, source, "the text still has the backticks")
+    }
+
+    func testTheOpeningFenceComesBackWhenTheCaretIsOnIt() {
+        let tv = editor(source, caretAtEnd: false)
+        tv.setSelectedRange(NSRange(location: (source as NSString).range(of: "```js").location + 3, length: 0))
+        let open = attrs(tv, "```js")
+        XCTAssertGreaterThan((open[.foregroundColor] as? NSColor)?.alphaComponent ?? 0, 0.2, "visible, so the language can be edited")
+        XCTAssertGreaterThan((open[.font] as? NSFont)?.pointSize ?? 0, 10)
+        XCTAssertNil(open[.scrapBlockLabel], "and the corner label steps aside")
+        let close = attrs(tv, "```\nafter")
+        XCTAssertEqual((close[.foregroundColor] as? NSColor)?.alphaComponent, 0, "the other fence stays hidden")
+        tv.setSelectedRange(NSRange(location: source.utf16.count, length: 0))
+        XCTAssertEqual(attrs(tv, "```js")[.scrapBlockLabel] as? String, "js", "and it hides again when the caret leaves")
+    }
+
+    func testDimAndShowModesKeepTheFencesVisible() {
+        for mode in ["dim", "show"] {
+            let tv = editor(source, markers: mode)
+            let open = attrs(tv, "```js")
+            XCTAssertGreaterThan((open[.foregroundColor] as? NSColor)?.alphaComponent ?? 0, 0.2, mode)
+            XCTAssertGreaterThan((open[.font] as? NSFont)?.pointSize ?? 0, 10, mode)
+            XCTAssertNil(open[.scrapBlockLabel], "\(mode): the language is already visible on the fence")
+        }
+    }
+
+    func testRawModeShowsTheFences() {
+        let tv = editor(source, rendered: false)
+        let open = attrs(tv, "```js")
+        XCTAssertGreaterThan((open[.foregroundColor] as? NSColor)?.alphaComponent ?? 0, 0.2)
+        XCTAssertGreaterThan((open[.font] as? NSFont)?.pointSize ?? 0, 10)
+        XCTAssertNil(open[.scrapBlockLabel])
+    }
+
+    func testABlockWithNoLanguageHasNoLabel() {
+        let tv = editor("a\n```\nplain code\n```\nb")
+        XCTAssertNil(attrs(tv, "```\nplain")[.scrapBlockLabel])
+        XCTAssertEqual((attrs(tv, "```\nplain")[.foregroundColor] as? NSColor)?.alphaComponent, 0, "still hidden")
+    }
+}
