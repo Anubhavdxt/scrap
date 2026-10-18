@@ -324,3 +324,77 @@ final class NestedEmphasisStyleTests: XCTestCase {
         XCTAssertTrue(font?.fontDescriptor.symbolicTraits.contains(.bold) == true)
     }
 }
+
+@MainActor
+final class StatusIconTests: XCTestCase {
+    private func template() -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect.insetBy(dx: 3, dy: 2), xRadius: 2, yRadius: 2).fill()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
+    private func pixel(_ image: NSImage, x: Int, y: Int) -> NSColor {
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 36, pixelsHigh: 36, bitsPerSample: 8, samplesPerPixel: 4,
+                                   hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        image.draw(in: NSRect(x: 0, y: 0, width: 36, height: 36))
+        NSGraphicsContext.restoreGraphicsState()
+        return rep.colorAt(x: x, y: y)!.usingColorSpace(.deviceRGB)!
+    }
+
+    func testTintedIconIsColouredNotATemplate() {
+        let tinted = StatusIcon.tinted(template(), with: NSColor(deviceRed: 1, green: 0.2, blue: 0.1, alpha: 1))
+        XCTAssertFalse(tinted.isTemplate, "a template would be recoloured by macOS")
+        XCTAssertEqual(tinted.size, NSSize(width: 18, height: 18))
+        let inside = pixel(tinted, x: 18, y: 18)
+        XCTAssertEqual(inside.alphaComponent, 1, accuracy: 0.05)
+        XCTAssertEqual(inside.redComponent, 1, accuracy: 0.05)
+        XCTAssertEqual(inside.greenComponent, 0.2, accuracy: 0.05)
+        let outside = pixel(tinted, x: 1, y: 1)
+        XCTAssertEqual(outside.alphaComponent, 0, accuracy: 0.05, "transparent parts stay transparent")
+    }
+
+    func testEveryPadHasADistinctColourAndTheyRepeat() {
+        let colors = (1...7).map { PadColors.nsColor(for: $0) }
+        XCTAssertEqual(Set(colors.map(\.description)).count, 7)
+        XCTAssertEqual(PadColors.nsColor(for: 8), PadColors.nsColor(for: 1))
+        XCTAssertEqual(PadColors.nsColor(for: 0), PadColors.nsColor(for: 1), "never crashes on an odd number")
+    }
+}
+
+/// The whole popover as the user sees it (opt-in, like the other snapshots).
+@MainActor
+final class PopoverSnapshotTests: XCTestCase {
+    func testRenderPopover() throws {
+        guard let dir = ProcessInfo.processInfo.environment["SCRAP_SNAPSHOT_DIR"] else { throw XCTSkip("set SCRAP_SNAPSHOT_DIR to write snapshots") }
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-snap-\(UUID().uuidString)")
+        let pads = home.appendingPathComponent("pads")
+        try FileManager.default.createDirectory(at: pads, withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: pads.path, pads: 7), home: home)
+        try "# Ideas\n- [ ] buy **milk**\n- [x] call back\nsee https://example.com".write(to: pads.appendingPathComponent("1.md"), atomically: true, encoding: .utf8)
+        try "second pad".write(to: pads.appendingPathComponent("3.md"), atomically: true, encoding: .utf8)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        defer { UserDefaults.standard.removeObject(forKey: "sayHiDone") }
+
+        let model = EditorModel()
+        let size = WindowSize.current()
+        let view = NSHostingView(rootView: ContentView(model: model).frame(width: size.width, height: size.height))
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        view.layoutSubtreeIfNeeded()
+        let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent("popover.png"))
+    }
+}

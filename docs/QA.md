@@ -16,6 +16,9 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 
 ## Menu bar and popover
 - [ ] The menu bar icon is the scrap logo and tints correctly in light and dark menu bars; there is no Dock icon
+- [ ] The menu bar icon takes the colour of the current pad and changes as you switch pads; Settings > General > "Tint the menu bar icon" turns that off (plain template icon in light and dark menu bars)
+- [ ] Esc closes the editor (and closes settings first when it's open); Settings > General > "Escape closes the window" turns that off
+- [ ] Footer: stats, "Saved just now" becoming "1 min ago"; the checklist button makes the line a task, the Aa menu runs Bold/Italic/Strikethrough/Code/Divider/Check, the share button shares the pad text (disabled when empty); the saved text drops away in a narrow window
 - [ ] Click the icon: the popover drops down from it and you can type immediately
 - [ ] ⌃⌥Space shows and hides it from any app
 - [ ] Clicking outside closes it; switching apps closes it; text typed just before closing is saved
