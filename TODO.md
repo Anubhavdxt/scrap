@@ -20,7 +20,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] Formatting commands (⌘B ⌘I ⇧⌘X ⌘E ⌃- ⌃8), keep indentation on Return
 - [x] Clickable task icons and bullet dots, link styling (pasted URLs too) with ⌘-click to open
 - [x] Live Markdown rendering: real bold/italic/strikethrough, sized headings, code panels, dimmed or hidden markers, colour highlights for bold and links (toggle)
-- [ ] highlight.js 11.12 (the portfolio's 14 languages) via JavaScriptCore, with the Swift lexers as fallback
+- [x] Decided against bundling highlight.js (measured: +73 KB, +6 MB RAM when used, slower than the Swift lexers, vendored JS to maintain). Improve the Swift lexers instead if any language's colours look worse than the portfolio
 - [ ] From Tot's settings: menu bar icon tinted with the current pad's colour, "Esc closes window" toggle, floating (always on top) window, hotkey follows the mouse, "show pad number", footer with a format menu and share button and a "saved just now" indicator, custom bullets, vibrant background, alternate app icons
 - [x] Font size (⌘+ ⌘− ⌘0), font family picker, line wrapping toggle
 - [x] List helpers: Return continues lists, Tab indents, ⌘Return toggles checkboxes
