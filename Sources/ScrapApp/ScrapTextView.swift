@@ -21,6 +21,31 @@ final class ScrapLayoutManager: NSLayoutManager {
     var iconSize: CGFloat = 13
     var iconAdvance: CGFloat = 19
 
+    /// Panels behind fenced code blocks and bars beside block quotes.
+    override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
+        super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
+        guard let storage = textStorage else { return }
+        let characters = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        storage.enumerateAttribute(.scrapBlock, in: characters, options: []) { value, range, _ in
+            guard value != nil, let rect = fragments(in: range, origin: origin) else { return }
+            textColor.withAlphaComponent(0.07).setFill()
+            NSBezierPath(roundedRect: rect.insetBy(dx: -4, dy: -2), xRadius: 6, yRadius: 6).fill()
+        }
+        storage.enumerateAttribute(.scrapQuote, in: characters, options: []) { value, range, _ in
+            guard value != nil, let rect = fragments(in: range, origin: origin) else { return }
+            accent.withAlphaComponent(0.6).setFill()
+            NSBezierPath(roundedRect: NSRect(x: rect.minX + 3, y: rect.minY + 1, width: 3, height: rect.height - 2), xRadius: 1.5, yRadius: 1.5).fill()
+        }
+    }
+
+    /// The union of the line fragments holding `characters`, in text view coordinates.
+    private func fragments(in characters: NSRange, origin: NSPoint) -> NSRect? {
+        let glyphs = glyphRange(forCharacterRange: characters, actualCharacterRange: nil)
+        var union = NSRect.null
+        enumerateLineFragments(forGlyphRange: glyphs) { rect, _, _, _, _ in union = union.union(rect) }
+        return union.isNull ? nil : union.offsetBy(dx: origin.x, dy: origin.y)
+    }
+
     override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: NSPoint) {
         super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
         guard let storage = textStorage else { return }

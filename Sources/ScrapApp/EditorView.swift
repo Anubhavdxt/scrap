@@ -42,6 +42,8 @@ struct EditorView: NSViewRepresentable {
     let fontSize: Double
     let fontFamily: String
     let wrap: Bool
+    var colorHighlights = true
+    var markers = "hide"
 
     private static let maxHighlightLength = 300_000
 
@@ -183,7 +185,7 @@ struct EditorView: NSViewRepresentable {
         }
 
         func apply(_ theme: Theme, to tv: NSTextView, force: Bool) {
-            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)"
+            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)"
             guard force || appliedTheme != key else { return }
             appliedTheme = key
             setWrap(parent.wrap, in: tv)
@@ -211,73 +213,60 @@ struct EditorView: NSViewRepresentable {
             tv.needsLayout = true
         }
 
-        func highlight(_ tv: NSTextView) {
-            guard let storage = tv.textStorage else { return }
-            let theme = parent.theme
-            let accent = NSColor(hex: theme.accent)
-            let baseFont = self.baseFont
-            let cell = baseFont.maximumAdvancement.width
-            let iconAdvance = (baseFont.pointSize * 1.4).rounded()
-            if let lm = tv.layoutManager as? ScrapLayoutManager {
-                lm.accent = accent
-                lm.textColor = NSColor(hex: theme.color(.base))
-                lm.iconSize = (baseFont.pointSize * 0.95).rounded()
-                lm.iconAdvance = iconAdvance
-            }
-            let base = [NSAttributedString.Key.font: baseFont, .foregroundColor: NSColor(hex: theme.color(.base))]
-            tv.typingAttributes = base
-            let full = NSRange(location: 0, length: storage.length)
-            let ns = storage.string as NSString
-            storage.beginEditing()
-            storage.setAttributes(base, range: full)
-            if storage.length <= EditorView.maxHighlightLength {
-                for span in MarkdownHighlighter.spans(in: storage.string) {
-                    var attrs: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor(hex: theme.color(span.token))]
-                    let italic = span.italic || (theme.italic.contains(span.token) && !span.strike)
-                    if span.bold || italic {
-                        var traits: NSFontDescriptor.SymbolicTraits = []
-                        if span.bold { traits.insert(.bold) }
-                        if italic { traits.insert(.italic) }
-                        attrs[.font] = NSFont(descriptor: baseFont.fontDescriptor.withSymbolicTraits(traits), size: baseFont.pointSize) ?? baseFont
-                    }
-                    if span.strike {
-                        // A finished task: struck through and dimmed, not themed like a comment.
-                        attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
-                        attrs[.foregroundColor] = NSColor(hex: theme.color(.base)).withAlphaComponent(0.5)
-                    }
-                    if let url = span.url {
-                        attrs[.foregroundColor] = accent
-                        attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
-                        attrs[.scrapURL] = url
-                    }
-                    storage.addAttributes(attrs, range: span.range)
-                    if let marker = span.marker { style(marker, over: span.range, in: storage, ns: ns, cell: cell, iconAdvance: iconAdvance) }
-                }
-            }
-            storage.endEditing()
+        // MARK: Styling
+
+        private var spans: [Span] = []
+        private var spansText: String?
+        private var revealed = NSRange(location: 0, length: 0)
+
+        private var style: MarkdownStyle {
+            MarkdownStyle(theme: parent.theme, baseFont: baseFont, colorHighlights: parent.colorHighlights,
+                          markers: MarkerMode(rawValue: parent.markers) ?? .hide)
         }
 
-        /// Collapses a bullet or task marker to an icon-sized gap (drawn by `ScrapLayoutManager`) and gives wrapped
-        /// lines of the item a hanging indent, so continuation lines align with the item's text.
-        private func style(_ marker: ListMarker, over range: NSRange, in storage: NSTextStorage, ns: NSString, cell: CGFloat, iconAdvance: CGFloat) {
-            let indent = CGFloat(marker.indentColumns) * cell
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.firstLineHeadIndent = 0
-            switch marker.kind {
-            case .number:
-                paragraph.headIndent = indent + CGFloat(marker.columns) * cell
-            case .bullet, .taskOpen, .taskDone:
-                paragraph.headIndent = indent + iconAdvance
-                // Keep the characters (the file stays plain Markdown) but make them zero-width and invisible.
-                storage.addAttribute(.foregroundColor, value: NSColor.clear, range: range)
-                for i in range.location..<range.upperBound {
-                    let last = i == range.upperBound - 1
-                    storage.addAttribute(.kern, value: last ? iconAdvance - cell : -cell, range: NSRange(location: i, length: 1))
-                }
-                let kind: MarkerKind = marker.kind == .bullet ? .bullet : (marker.kind == .taskOpen ? .taskOpen : .taskDone)
-                storage.addAttribute(.scrapMarker, value: kind.rawValue, range: range)
+        /// Re-styles the whole text (after an edit or a settings change).
+        func highlight(_ tv: NSTextView) {
+            guard let storage = tv.textStorage else { return }
+            let style = self.style
+            if let lm = tv.layoutManager as? ScrapLayoutManager {
+                lm.accent = style.accent
+                lm.textColor = style.base
+                lm.iconSize = (style.baseFont.pointSize * 0.95).rounded()
+                lm.iconAdvance = style.iconAdvance
             }
-            storage.addAttribute(.paragraphStyle, value: paragraph, range: ns.paragraphRange(for: range))
+            tv.typingAttributes = style.baseAttributes
+            let full = NSRange(location: 0, length: storage.length)
+            if storage.length <= EditorView.maxHighlightLength {
+                if spansText != storage.string {
+                    spans = MarkdownHighlighter.spans(in: storage.string)
+                    spansText = storage.string
+                }
+            } else {
+                spans = []
+                spansText = nil
+            }
+            revealed = paragraphs(of: tv.selectedRange(), in: storage)
+            MarkdownStyler.apply(spans, to: storage, range: full, reveal: revealed, style: style)
+        }
+
+        /// Moving the caret to another paragraph shows that paragraph's Markdown syntax and hides the previous one's.
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView, let storage = tv.textStorage, !spans.isEmpty,
+                  spansText == storage.string else { return }
+            let now = paragraphs(of: tv.selectedRange(), in: storage)
+            guard now != revealed else { return }
+            let before = revealed
+            revealed = now
+            let style = self.style
+            for range in [before, now] where range.upperBound <= storage.length {
+                MarkdownStyler.apply(spans, to: storage, range: range, reveal: now, style: style)
+            }
+        }
+
+        private func paragraphs(of selection: NSRange, in storage: NSTextStorage) -> NSRange {
+            let ns = storage.string as NSString
+            let location = min(selection.location, ns.length)
+            return ns.paragraphRange(for: NSRange(location: location, length: min(selection.length, ns.length - location)))
         }
     }
 }

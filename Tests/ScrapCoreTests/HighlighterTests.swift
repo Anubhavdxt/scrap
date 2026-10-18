@@ -31,8 +31,10 @@ final class HighlighterTests: XCTestCase {
     }
 
     func testNothingStyledInsideCodeSpan() {
-        let t = tokens("`**not bold**`")
-        XCTAssertEqual(t.count, 1)
+        let spans = MarkdownHighlighter.spans(in: "`**not bold**`")
+        XCTAssertFalse(spans.contains { $0.bold }, "no emphasis inside code")
+        XCTAssertEqual(spans.filter { !$0.syntax }.count, 1, "just the code run itself")
+        XCTAssertEqual(spans.filter(\.syntax).count, 2, "plus its two backticks")
     }
 
     func testBlockCommentSpansLines() {

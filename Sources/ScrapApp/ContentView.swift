@@ -26,6 +26,8 @@ struct ContentView: View {
     @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
     @AppStorage("fontFamily") private var fontFamily = ""
     @AppStorage("wrapLines") private var wrapLines = true
+    @AppStorage("colorHighlights") private var colorHighlights = true
+    @AppStorage("markers") private var markers = "hide"
     @Environment(\.colorScheme) private var colorScheme
 
     private var theme: Theme { resolveTheme(family: family, appearance: appearance, colorScheme: colorScheme) }
@@ -35,7 +37,8 @@ struct ContentView: View {
             TopBar(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))
             Divider()
-            EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines)
+            EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
+                       colorHighlights: colorHighlights, markers: markers)
             Divider()
             StatusLine(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))

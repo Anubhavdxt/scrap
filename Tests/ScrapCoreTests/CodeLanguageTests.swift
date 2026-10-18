@@ -8,7 +8,7 @@ final class CodeLanguageTests: XCTestCase {
         let ns = text as NSString
         return MarkdownHighlighter.spans(in: text)
             .map { (ns.substring(with: $0.range), $0.token) }
-            .filter { !$0.0.hasPrefix("```") }
+            .filter { !$0.0.hasPrefix("```") && $0.1 != .base }   // .base spans only mark the code panel
     }
 
     private func has(_ t: [(String, Token)], _ text: String, _ token: Token, file: StaticString = #filePath, line: UInt = #line) {
