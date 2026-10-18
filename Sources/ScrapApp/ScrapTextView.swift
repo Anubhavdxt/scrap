@@ -5,6 +5,8 @@ extension NSAttributedString.Key {
     /// Marks the start of a bullet or task marker. The characters stay in the text (the file is plain Markdown) but
     /// are collapsed and made invisible, and `ScrapLayoutManager` draws an icon in their place.
     static let scrapMarker = NSAttributedString.Key("scrap.marker")
+    /// A smart bullet character (○ ● □ ■ …): clicking it flips it between its open and done form.
+    static let scrapSmartBullet = NSAttributedString.Key("scrap.smartBullet")
     /// The address a link points to; ⌘-click opens it.
     static let scrapURL = NSAttributedString.Key("scrap.url")
 }
@@ -102,6 +104,8 @@ final class ScrapLayoutManager: NSLayoutManager {
 final class ScrapTextView: NSTextView {
     /// Called with a character index inside a task's marker when its icon is clicked.
     var onToggleTask: ((Int) -> Void)?
+    /// Called with the index of a smart bullet character that was clicked.
+    var onToggleSmartBullet: ((Int) -> Void)?
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -115,6 +119,10 @@ final class ScrapTextView: NSTextView {
             onToggleTask?(index)
             return
         }
+        if let index = smartBulletIndex(at: point) {
+            onToggleSmartBullet?(index)
+            return
+        }
         if event.modifierFlags.contains(.command), let url = linkURL(at: point) {
             NSWorkspace.shared.open(url)
             return
@@ -125,7 +133,7 @@ final class ScrapTextView: NSTextView {
     override func mouseMoved(with event: NSEvent) {
         super.mouseMoved(with: event)
         let point = convert(event.locationInWindow, from: nil)
-        if taskMarkerIndex(at: point) != nil || (event.modifierFlags.contains(.command) && linkURL(at: point) != nil) {
+        if taskMarkerIndex(at: point) != nil || smartBulletIndex(at: point) != nil || (event.modifierFlags.contains(.command) && linkURL(at: point) != nil) {
             NSCursor.pointingHand.set()
         } else {
             NSCursor.iBeam.set()
@@ -147,6 +155,22 @@ final class ScrapTextView: NSTextView {
                   let kind = MarkerKind(rawValue: raw), kind != .bullet,
                   let rect = lm.iconRect(forMarkerAt: range.location, origin: origin) else { continue }
             if rect.insetBy(dx: -4, dy: -3).contains(point) { return range.location }
+        }
+        return nil
+    }
+
+    /// The index of the smart bullet character under `point` (view coordinates).
+    func smartBulletIndex(at point: NSPoint) -> Int? {
+        guard let lm = layoutManager, let storage = textStorage, let container = textContainer, storage.length > 0 else { return nil }
+        let origin = textContainerOrigin
+        let local = NSPoint(x: point.x - origin.x, y: point.y - origin.y)
+        let guess = lm.characterIndex(for: local, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
+        for candidate in [guess, guess - 1] where candidate >= 0 && candidate < storage.length {
+            var range = NSRange(location: 0, length: 0)
+            guard storage.attribute(.scrapSmartBullet, at: candidate, longestEffectiveRange: &range, in: NSRange(location: 0, length: storage.length)) != nil else { continue }
+            let rect = lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: range, actualCharacterRange: nil), in: container)
+                .offsetBy(dx: origin.x, dy: origin.y).insetBy(dx: -5, dy: -3)
+            if rect.contains(point) { return range.location }
         }
         return nil
     }

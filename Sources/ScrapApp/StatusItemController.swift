@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ScrapCore
 import SwiftUI
 
 extension Notification.Name {
@@ -8,6 +9,7 @@ extension Notification.Name {
     static let toggleSettings = Notification.Name("scrap.toggleSettings")
     static let editorCommand = Notification.Name("scrap.editorCommand")
     static let toggleDetach = Notification.Name("scrap.toggleDetach")
+    static let insertSymbol = Notification.Name("scrap.insertSymbol")
 }
 
 /// Formatting and list commands sent from menus and buttons to the text view.
@@ -15,6 +17,13 @@ enum EditorCommand: String {
     case bold, italic, strikethrough, code, divider, task, checkbox
 
     func post() { NotificationCenter.default.post(name: .editorCommand, object: nil, userInfo: ["command": rawValue]) }
+}
+
+/// Something chosen in the symbol picker, to be put into the text at the cursor.
+final class SymbolRequest {
+    let kind: SymbolItem.Kind
+    init(_ kind: SymbolItem.Kind) { self.kind = kind }
+    func post() { NotificationCenter.default.post(name: .insertSymbol, object: self) }
 }
 
 /// The gear button registers itself here so the settings popover can attach to it.
@@ -288,6 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
                 let model = EditorModel.shared
+                if model.showSymbols { model.showSymbols = false; return nil }
                 if model.showPalette || model.showClear || model.showSayHi { return event }
                 if self.settingsPopover.isShown { self.settingsPopover.performClose(nil); return nil }
                 let editorKey = self.policy.usesWindow ? self.windowController.isKey : self.popover.isShown

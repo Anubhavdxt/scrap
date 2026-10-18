@@ -163,6 +163,12 @@ enum MarkdownStyler {
         switch marker.kind {
         case .number:
             paragraph.headIndent = indent + EditorFont.advance(of: ns.substring(with: range), in: style.baseFont)
+        case .smartOpen, .smartDone:
+            // A smart bullet is a real character that stays visible: tint it, make it clickable, and hang wrapped lines under the text.
+            paragraph.headIndent = indent + EditorFont.advance(of: ns.substring(with: range), in: style.baseFont)
+            let glyph = NSRange(location: range.location, length: min(marker.glyphLength, range.length))
+            storage.addAttribute(.foregroundColor, value: style.accent, range: glyph)
+            storage.addAttribute(.scrapSmartBullet, value: 1, range: glyph)
         case .bullet, .taskOpen, .taskDone:
             paragraph.headIndent = indent + style.iconAdvance
             // Keep the characters (the file stays plain Markdown) but make them zero-width and invisible.

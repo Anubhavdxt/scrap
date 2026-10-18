@@ -57,6 +57,10 @@ struct EditorView: NSViewRepresentable {
             guard let tv else { return }
             coordinator?.toggleTask(at: index, in: tv)
         }
+        tv.onToggleSmartBullet = { [weak tv, weak coordinator = context.coordinator] index in
+            guard let tv else { return }
+            coordinator?.toggleSmartBullet(at: index, in: tv)
+        }
         tv.isAutomaticLinkDetectionEnabled = false
         tv.isRichText = false
         tv.allowsUndo = true
@@ -69,6 +73,10 @@ struct EditorView: NSViewRepresentable {
         context.coordinator.apply(theme, to: tv, force: true)
         context.coordinator.focusObserver = NotificationCenter.default.addObserver(forName: .focusEditor, object: nil, queue: .main) { [weak tv] _ in
             tv.flatMap { $0.window?.makeFirstResponder($0) }
+        }
+        context.coordinator.symbolObserver = NotificationCenter.default.addObserver(forName: .insertSymbol, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] note in
+            guard let tv, tv.window?.isKeyWindow == true, let request = note.object as? SymbolRequest else { return }
+            coordinator?.insert(request.kind, in: tv)
         }
         context.coordinator.commandObserver = NotificationCenter.default.addObserver(forName: .editorCommand, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] note in
             guard let tv, tv.window?.isKeyWindow == true, let raw = note.userInfo?["command"] as? String,
@@ -101,12 +109,14 @@ struct EditorView: NSViewRepresentable {
 
         var focusObserver: NSObjectProtocol?
         var commandObserver: NSObjectProtocol?
+        var symbolObserver: NSObjectProtocol?
 
         init(_ parent: EditorView) { self.parent = parent }
 
         deinit {
             focusObserver.map(NotificationCenter.default.removeObserver)
             commandObserver.map(NotificationCenter.default.removeObserver)
+            symbolObserver.map(NotificationCenter.default.removeObserver)
         }
 
         func textDidChange(_ notification: Notification) {
@@ -143,6 +153,28 @@ struct EditorView: NSViewRepresentable {
             if apply(ListEditing.toggleChecklist(in: tv.string, selection: NSRange(location: index, length: 0)), to: tv) {
                 tv.setSelectedRange(saved)
             }
+        }
+
+        /// Clicking a smart bullet flips it without moving the caret.
+        func toggleSmartBullet(at index: Int, in tv: NSTextView) {
+            let saved = tv.selectedRange()
+            if apply(SmartBullets.toggle(in: tv.string, at: index), to: tv) { tv.setSelectedRange(saved) }
+        }
+
+        /// Puts something chosen in the symbol picker into the text.
+        func insert(_ kind: SymbolItem.Kind, in tv: NSTextView) {
+            let text = tv.string, selection = tv.selectedRange()
+            let edit: TextEdit?
+            switch kind {
+            case .smartBullet(let pair): edit = ListEditing.insertSmartBullet(pair, in: text, selection: selection)
+            case .markdownTask:
+                // "Make this a task" never un-makes one.
+                let toggled = ListEditing.toggleTask(in: text, selection: selection)
+                edit = toggled?.replacement.isEmpty == true ? nil : toggled
+            case .divider(let line): edit = Formatting.insertDividerLine(line, in: text, selection: selection)
+            case .text(let string): edit = Formatting.insertText(string, in: text, selection: selection)
+            }
+            apply(edit, to: tv)
         }
 
         /// Runs a formatting or list command on the current selection.

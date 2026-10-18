@@ -19,6 +19,8 @@ final class EditorModel: ObservableObject {
     @Published private(set) var notice: String?
     @Published var showPalette = false
     @Published var showClear = false
+    /// The `*` symbol picker is open.
+    @Published var showSymbols = false
     @Published var showSayHi: Bool
 
     private var store: PadStore

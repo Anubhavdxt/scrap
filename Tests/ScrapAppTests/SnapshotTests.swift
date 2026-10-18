@@ -666,3 +666,187 @@ private enum HeavyEditor {
         return tv
     }
 }
+
+/// Smart bullets and the symbol picker, in the real editor.
+@MainActor
+final class SmartBulletEditorTests: XCTestCase {
+    private final class Box { var text: String; init(_ t: String) { text = t } }
+
+    private func editor(_ text: String, rendered: Bool = true, box: Box? = nil) -> (NSWindow, ScrapTextView, EditorView.Coordinator, Box) {
+        let box = box ?? Box(text)
+        let theme = Themes.all.first { $0.id == "cobalt2-dark" }!
+        let binding = Binding(get: { box.text }, set: { box.text = $0 })
+        let view = NSHostingView(rootView: EditorView(text: binding, theme: theme, fontSize: 14, fontFamily: "", wrap: true, rendered: rendered)
+            .frame(width: 520, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        func find(_ v: NSView) -> ScrapTextView? { (v as? ScrapTextView) ?? v.subviews.lazy.compactMap(find).first }
+        let tv = find(view)!
+        return (window, tv, tv.delegate as! EditorView.Coordinator, box)
+    }
+
+    private func glyphCentre(_ tv: ScrapTextView, at index: Int, length: Int = 1) -> NSPoint {
+        let lm = tv.layoutManager!
+        let r = lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: NSRange(location: index, length: length), actualCharacterRange: nil), in: tv.textContainer!)
+        return NSPoint(x: r.midX + tv.textContainerOrigin.x, y: r.midY + tv.textContainerOrigin.y)
+    }
+
+    private func click(_ tv: ScrapTextView, _ window: NSWindow, at point: NSPoint) {
+        let event = NSEvent.mouseEvent(with: .leftMouseDown, location: tv.convert(point, to: nil), modifierFlags: [], timestamp: 0,
+                                       windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        tv.mouseDown(with: event)
+    }
+
+    // MARK: Look
+
+    func testBulletsAreTintedClickableAndHangWrappedLines() {
+        let (_, tv, _, _) = editor("○ open item that is long enough to wrap onto a second line when the window is narrow, yes\n● done item\nplain")
+        tv.setSelectedRange(NSRange(location: tv.string.utf16.count, length: 0))
+        let storage = tv.textStorage!
+        XCTAssertNotNil(storage.attribute(.scrapSmartBullet, at: 0, effectiveRange: nil), "the bullet is a click target")
+        XCTAssertNil(storage.attribute(.scrapSmartBullet, at: 1, effectiveRange: nil), "the space after it is not")
+        XCTAssertNotNil(storage.attribute(.foregroundColor, at: 0, effectiveRange: nil))
+        let paragraph = storage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        XCTAssertGreaterThan(paragraph?.headIndent ?? 0, 8, "wrapped lines hang under the text")
+        XCTAssertEqual(paragraph?.firstLineHeadIndent, 0)
+        let done = (tv.string as NSString).range(of: "done item")
+        XCTAssertNotNil(storage.attribute(.strikethroughStyle, at: done.location, effectiveRange: nil), "finished items are struck through")
+        XCTAssertNil(storage.attribute(.strikethroughStyle, at: 3, effectiveRange: nil), "open items are not")
+        XCTAssertEqual(tv.string, "○ open item that is long enough to wrap onto a second line when the window is narrow, yes\n● done item\nplain", "the text is untouched")
+    }
+
+    func testRawModeShowsTheCharactersWithoutClickTargets() {
+        let (_, tv, _, _) = editor("○ open\n● done\nplain", rendered: false)
+        XCTAssertNil(tv.textStorage!.attribute(.scrapSmartBullet, at: 0, effectiveRange: nil))
+    }
+
+    // MARK: Clicking
+
+    func testClickingABulletFlipsItAndLeavesTheCaret() {
+        let (window, tv, _, box) = editor("○ first\n● second\n❌ third\nplain text")
+        tv.setSelectedRange(NSRange(location: 28, length: 0))
+        click(tv, window, at: glyphCentre(tv, at: 0))
+        XCTAssertEqual(box.text, "● first\n● second\n❌ third\nplain text")
+        click(tv, window, at: glyphCentre(tv, at: 8))
+        XCTAssertEqual(box.text, "● first\n○ second\n❌ third\nplain text")
+        let emoji = (tv.string as NSString).range(of: "❌")
+        click(tv, window, at: glyphCentre(tv, at: emoji.location, length: emoji.length))
+        XCTAssertEqual(box.text, "● first\n○ second\n✅ third\nplain text", "emoji pairs flip too")
+        XCTAssertEqual(tv.selectedRange(), NSRange(location: 28, length: 0), "the caret doesn't jump")
+    }
+
+    func testOnlyTheBulletItselfIsATarget() {
+        let (_, tv, _, box) = editor("○ item with text\nplain line")
+        XCTAssertEqual(tv.smartBulletIndex(at: glyphCentre(tv, at: 0)), 0)
+        XCTAssertNil(tv.smartBulletIndex(at: glyphCentre(tv, at: 8)), "the item's text")
+        XCTAssertNil(tv.smartBulletIndex(at: glyphCentre(tv, at: 20)), "a plain line")
+        XCTAssertNil(tv.smartBulletIndex(at: NSPoint(x: 400, y: 200)), "empty space")
+        XCTAssertEqual(box.text, "○ item with text\nplain line")
+    }
+
+    // MARK: The picker's choices
+
+    func testChoosingASmartBulletOnDifferentLines() {
+        let (_, tv, coordinator, box) = editor("buy milk\n- dash item\n● old\n1. numbered")
+        let ns = tv.string as NSString
+        for (needle, expected) in [("buy", "▷ buy milk"), ("dash", "▷ dash item"), ("old", "▷ old"), ("numbered", "▷ numbered")] {
+            tv.setSelectedRange(NSRange(location: ns.range(of: needle).location + 1, length: 0))
+            coordinator.insert(.smartBullet(2), in: tv)
+            XCTAssertTrue(box.text.contains(expected), "\(needle): \(box.text)")
+        }
+    }
+
+    func testChoosingTextADividerAndATask() {
+        let (_, tv, coordinator, box) = editor("alpha beta\nsecond line")
+        tv.setSelectedRange(NSRange(location: 5, length: 0))
+        coordinator.insert(.text("→"), in: tv)
+        XCTAssertEqual(box.text, "alpha→ beta\nsecond line")
+        XCTAssertEqual(tv.selectedRange(), NSRange(location: 6, length: 0), "the caret moves past it")
+
+        tv.setSelectedRange(NSRange(location: 3, length: 0))
+        coordinator.insert(.divider("────"), in: tv)
+        XCTAssertEqual(box.text, "alpha→ beta\n────\nsecond line")
+
+        tv.setSelectedRange(NSRange(location: tv.string.utf16.count, length: 0))
+        coordinator.insert(.markdownTask, in: tv)
+        XCTAssertTrue(box.text.hasSuffix("- [ ] second line"))
+        coordinator.insert(.markdownTask, in: tv)
+        XCTAssertTrue(box.text.hasSuffix("- [ ] second line"), "choosing task again on a task changes nothing")
+    }
+
+    func testEveryItemInTheCatalogCanBeInserted() {
+        let (_, tv, coordinator, box) = editor("x")
+        for group in SymbolCatalog.groups {
+            for item in group.items {
+                box.text = "line"
+                tv.string = "line"
+                tv.setSelectedRange(NSRange(location: 4, length: 0))
+                let before = tv.string
+                coordinator.insert(item.kind, in: tv)
+                XCTAssertNotEqual(tv.string, before, "\(group.name): \(item.label) did something")
+            }
+        }
+    }
+
+    func testPickerOpensAndTheEscapeKeyClosesItViaTheModelFlag() {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-picker-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: home.appendingPathComponent("pads"), withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try? Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
+        let model = EditorModel()
+        XCTAssertFalse(model.showSymbols)
+        model.showSymbols = true
+        XCTAssertTrue(model.showSymbols)
+    }
+
+    // MARK: Raw mode and bold (follow-up to the heavier bold)
+
+    func testBoldIsHeavyInRawModeToo() {
+        let (_, tv, _, _) = editor("**strong** and plain\nlast", rendered: false)
+        tv.setSelectedRange(NSRange(location: tv.string.utf16.count, length: 0))
+        let r = (tv.string as NSString).range(of: "strong")
+        let font = tv.textStorage!.attribute(.font, at: r.location, effectiveRange: nil) as! NSFont
+        XCTAssertTrue(font.isFixedPitch, "raw is monospaced")
+        XCTAssertGreaterThanOrEqual(EditorFont.weight(of: font), NSFont.Weight.heavy.rawValue - 0.01)
+    }
+}
+
+/// The picker as a picture (opt-in).
+@MainActor
+final class PickerSnapshotTests: XCTestCase {
+    func testRender() throws {
+        guard let dir = ProcessInfo.processInfo.environment["SCRAP_SNAPSHOT_DIR"] else { throw XCTSkip("set SCRAP_SNAPSHOT_DIR to write snapshots") }
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-pick-\(UUID().uuidString)")
+        let pads = home.appendingPathComponent("pads")
+        try FileManager.default.createDirectory(at: pads, withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: pads.path, pads: 7), home: home)
+        try "# Weekend\n○ call the dentist\n● book the flights\n✅ pay rent\n❌ fix the bike\n☆ ideas\n– dash item\n➕ plus item\n−  minus item\n✓ checked\nSee https://example.com".write(to: pads.appendingPathComponent("1.md"), atomically: true, encoding: .utf8)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        defer { UserDefaults.standard.removeObject(forKey: "sayHiDone") }
+        let model = EditorModel()
+        let size = WindowSize.current()
+        let view = NSHostingView(rootView: ContentView(model: model).frame(width: size.width, height: size.height + 120))
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: CGSize(width: size.width, height: size.height + 120)), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+        func shot(_ name: String) throws {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+            view.layoutSubtreeIfNeeded()
+            let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
+        }
+        try shot("bullets.png")
+        model.showSymbols = true
+        try shot("picker.png")
+    }
+}

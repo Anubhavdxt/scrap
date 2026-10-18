@@ -80,6 +80,12 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var overlays: some View {
+        if model.showSymbols {
+            ZStack(alignment: .bottomTrailing) {
+                Color.black.opacity(0.001).onTapGesture { model.showSymbols = false }
+                SymbolPicker(model: model).padding(.trailing, 10).padding(.bottom, 32)
+            }
+        }
         if model.showSayHi { SayHiView(model: model, theme: theme) }
         if model.showPalette {
             ZStack {
@@ -255,8 +261,8 @@ struct FooterButtons: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button { run(.task) } label: { Image(systemName: "checklist") }
-                .help("Make this line a task (⌃8)")
+            Button { model.showSymbols.toggle() } label: { Image(systemName: "asterisk") }
+                .help("Bullets, dividers and symbols")
             Button { rendered.toggle() } label: { Image(systemName: rendered ? "eye" : "eye.slash") }
                 .help(rendered ? "Show raw Markdown, with all the marks visible (⌥⌘R)" : "Show rendered text (⌥⌘R)")
             Menu {
