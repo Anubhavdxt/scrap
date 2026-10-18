@@ -1,6 +1,18 @@
 import XCTest
 @testable import ScrapCore
 
+/// `count` distinct emoji pairs that clash with none of the built-in bullets. (Plain loops, because long one-line
+/// expressions of nested closures and interpolation can exhaust the type checker on some compilers.)
+private func emojiPairs(_ count: Int) -> [SmartBullets.Pair] {
+    var result: [SmartBullets.Pair] = []
+    for i in 0..<count {
+        let open: String = String(UnicodeScalar(UInt32(0x1F300 + i * 2))!)
+        let done: String = String(UnicodeScalar(UInt32(0x1F301 + i * 2))!)
+        result.append(SmartBullets.Pair(open: open, done: done))
+    }
+    return result
+}
+
 final class CustomBulletsTests: XCTestCase {
     private typealias Pair = SmartBullets.Pair
 
@@ -45,7 +57,7 @@ final class CustomBulletsTests: XCTestCase {
     }
 
     func testAtMostEight() {
-        let nine = (0..<9).map { Pair(open: String(UnicodeScalar(0x1F300 + $0 * 2)!), done: String(UnicodeScalar(0x1F301 + $0 * 2)!)) }
+        let nine: [Pair] = emojiPairs(9)
         XCTAssertEqual(CustomBullets.validate(nine), .tooMany)
         XCTAssertNil(CustomBullets.validate(Array(nine.prefix(8))))
     }
@@ -71,7 +83,7 @@ final class CustomBulletsTests: XCTestCase {
         let mixed = #"[{"open":"◇","done":"◆"},{"open":"a","done":"b"},{"open":"○","done":"♥"},{"open":"♡","done":"♥"}]"#
         XCTAssertEqual(CustomBullets.decode(mixed), [Pair(open: "◇", done: "◆"), Pair(open: "♡", done: "♥")],
                        "the letters and the built-in clash are dropped, the rest kept in order")
-        let twelve = "[" + (0..<12).map { #"{"open":"\#(String(UnicodeScalar(0x1F300 + $0 * 2)!))","done":"\#(String(UnicodeScalar(0x1F301 + $0 * 2)!))"}"# }.joined(separator: ",") + "]"
+        let twelve: String = CustomBullets.encode(emojiPairs(12))   // encode doesn't validate, which is what this needs
         XCTAssertEqual(CustomBullets.decode(twelve).count, SmartBullets.maxCustom, "capped at eight")
     }
 
@@ -195,7 +207,8 @@ final class CustomBulletsFormTests: XCTestCase {
     }
 
     func testTooManyRows() {
-        let rows = (0..<9).map { (String(UnicodeScalar(0x1F300 + $0 * 2)!), String(UnicodeScalar(0x1F301 + $0 * 2)!)) }
+        var rows: [(String, String)] = []
+        for pair in emojiPairs(9) { rows.append((pair.open, pair.done)) }
         XCTAssertNil(evaluate(rows).store)
         XCTAssertEqual(evaluate(rows).message, "At most 8 of your own.")
     }

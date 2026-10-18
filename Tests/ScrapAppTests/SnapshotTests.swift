@@ -1090,12 +1090,20 @@ final class SettingsAppearanceSnapshotTests: XCTestCase {
         defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
         try Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
         UserDefaults.standard.set("Appearance", forKey: "settingsTab")
-        UserDefaults.standard.set(CustomBullets.encode([.init(open: "◇", done: "◆"), .init(open: "🟡", done: "🟢")]), forKey: "customBullets")
+        let samples: [SmartBullets.Pair] = [SmartBullets.Pair(open: "◇", done: "◆"), SmartBullets.Pair(open: "🟡", done: "🟢")]
+        UserDefaults.standard.set(CustomBullets.encode(samples), forKey: "customBullets")
         defer { ["settingsTab", "customBullets"].forEach { UserDefaults.standard.removeObject(forKey: $0) } }
         // The bullets editor on its own (in the real pane it sits below the theme swatches and the text options).
         let size = CGSize(width: SettingsView.size.width - 40, height: 250)
-        let view = NSHostingView(rootView: CustomBulletsEditor().padding(20).frame(width: size.width + 40, height: size.height, alignment: .topLeading).background(Color(red: 0.1, green: 0.2, blue: 0.29)).foregroundStyle(.white))
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: CGSize(width: size.width + 40, height: size.height)), styleMask: [.titled], backing: .buffered, defer: false)
+        let full = CGSize(width: size.width + 40, height: size.height)
+        let background = Color(red: 0.1, green: 0.2, blue: 0.29)
+        let content = CustomBulletsEditor()
+            .padding(20)
+            .frame(width: full.width, height: full.height, alignment: .topLeading)
+            .background(background)
+            .foregroundStyle(Color.white)
+        let view = NSHostingView(rootView: content)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: full), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = view
         window.appearance = NSAppearance(named: .darkAqua)
         view.layoutSubtreeIfNeeded()
