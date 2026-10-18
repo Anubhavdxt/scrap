@@ -52,6 +52,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
 | Window | The pin in the top bar turns the popover into a normal resizable window (and back); Settings can show scrap in the menu bar, the Dock, or both, and keep the window above other windows |
 | Pad dots | A solid disc with a halo is the open pad, a ring with a dot in the middle has text, a thin faint ring is empty. The footer takes a tint of the open pad's colour (Settings can turn that off) |
+| Pointer | With *The hotkey opens the window at the pointer* (Settings > General), the hotkey brings the window up under your mouse, on whichever screen it is, instead of where it was |
 | Footer | the pad's line, word and character counts, when it was last saved, and buttons for tasks, formatting and sharing |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
 

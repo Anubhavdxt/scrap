@@ -37,6 +37,7 @@ struct SettingsView: View {
     @AppStorage("iconMode") private var iconMode = IconMode.menuBar
     @AppStorage("detached") private var detached = false
     @AppStorage("windowFloating") private var windowFloating = false
+    @AppStorage("windowFollowsPointer") private var windowFollowsPointer = false
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
@@ -190,6 +191,7 @@ struct SettingsView: View {
                     Toggle("Open as a window instead of a popover", isOn: Binding(get: { detached || iconMode == .dock }, set: { detached = $0 }))
                         .disabled(iconMode == .dock)
                     Toggle("Keep the window above other windows", isOn: $windowFloating)
+                    Toggle("The hotkey opens the window at the pointer", isOn: $windowFollowsPointer)
                     Toggle("Escape closes the window", isOn: $escCloses)
                     Toggle("Tint the menu bar icon with the pad colour", isOn: $tintMenuBar)
                     Toggle("Tint the footer with the pad colour", isOn: $tintFooter)

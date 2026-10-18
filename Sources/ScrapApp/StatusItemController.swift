@@ -110,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installKeyMonitor()
 
         let hotKeys = HotKeyManager.shared
-        hotKeys.action = { [weak self] in self?.toggle() }
+        hotKeys.action = { [weak self] in self?.toggle(fromHotkey: true) }
         hotKeys.start()
 
         // With no menu bar icon there is nothing to click, so start with the window open.
@@ -245,10 +245,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var editorVisible: Bool { policy.usesWindow ? windowController.isVisible : popover.isShown }
 
-    private func toggle() {
+    private func toggle(fromHotkey: Bool = false) {
         if policy.usesWindow {
             // A visible window that isn't in front comes forward; one that is in front goes away.
-            if windowController.isVisible && NSApp.isActive { closeAll() } else { show() }
+            if windowController.isVisible && NSApp.isActive {
+                closeAll()
+            } else if fromHotkey && UserDefaults.standard.bool(forKey: "windowFollowsPointer") {
+                windowController.show(near: NSEvent.mouseLocation)   // "Open the window at the pointer"
+            } else {
+                show()
+            }
         } else if popover.isShown {
             closeAll()
         } else {

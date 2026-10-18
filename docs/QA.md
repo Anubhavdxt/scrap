@@ -32,6 +32,7 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Settings > General: "Show in" Menu bar / Dock / Both. Dock-only: no menu bar icon, the window opens at launch, no pin, "Open as a window" is on and greyed out. Both: Dock icon and menu bar icon; the menu bar icon opens the popover or window per the pin. Menu bar: no Dock icon
 - [ ] With a Dock icon the real menu bar shows scrap's menus (Edit, Format, View) and ⌘Q quits; clicking the Dock icon shows the editor
 - [ ] "Keep the window above other windows" floats it; switching between popover and window while open keeps the text and caret
+- [ ] Settings > General > "The hotkey opens the window at the pointer" (window mode): the hotkey puts the window's top bar under the mouse, on the screen the mouse is on, kept clear of the menu bar and Dock; with it off the window comes back where it was; it has no effect on the popover
 - [ ] The gear opens settings attached to the window, and clicking in the editor closes only settings
 
 ## Editor
