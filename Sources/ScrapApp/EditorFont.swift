@@ -39,6 +39,52 @@ enum EditorFont {
         (text as NSString).size(withAttributes: [.font: font]).width
     }
 
+    /// How heavy bold text is: one step above the system "Bold", so it reads clearly as bold next to regular text.
+    static let boldWeight: NSFont.Weight = .heavy
+
+    /// `font` made bold (at `boldWeight`) and/or italic, optionally at another size. Keeps the family, and anything
+    /// already applied (a bold font stays bold when italic is added).
+    ///
+    /// Three kinds of font need three approaches: the system monospaced font ignores a weight set on its descriptor, so
+    /// it is rebuilt at the weight; the proportional system font takes the weight on its descriptor; an installed family
+    /// (Menlo, ...) only has its regular and bold cuts, so it falls back to the ordinary bold trait.
+    static func styled(_ font: NSFont, bold: Bool, italic: Bool, size: CGFloat? = nil) -> NSFont {
+        let pt = size ?? font.pointSize
+        let wantsItalic = italic || isItalic(font)
+        func withItalic(_ f: NSFont) -> NSFont {
+            guard wantsItalic, !isItalic(f) else { return f }
+            return NSFont(descriptor: f.fontDescriptor.withSymbolicTraits(f.fontDescriptor.symbolicTraits.union(.italic)), size: pt) ?? f
+        }
+
+        if font.fontName.hasPrefix(".AppleSystemUIFontMonospaced") {
+            let weight = bold ? boldWeight : NSFont.Weight(rawValue: self.weight(of: font))
+            return withItalic(.monospacedSystemFont(ofSize: pt, weight: weight))
+        }
+
+        var descriptor = font.fontDescriptor
+        if wantsItalic { descriptor = descriptor.withSymbolicTraits(descriptor.symbolicTraits.union(.italic)) }
+        if bold {
+            // Replace only the weight inside the traits dictionary, so the italic flag set above survives.
+            var traits = descriptor.object(forKey: .traits) as? [NSFontDescriptor.TraitKey: Any] ?? [:]
+            traits[.weight] = boldWeight.rawValue
+            descriptor = descriptor.addingAttributes([.traits: traits])
+        }
+        var result = NSFont(descriptor: descriptor, size: pt) ?? font
+        if bold, !isBold(result) {
+            result = NSFont(descriptor: result.fontDescriptor.withSymbolicTraits(result.fontDescriptor.symbolicTraits.union(.bold)), size: pt) ?? result
+        }
+        return result
+    }
+
+    /// The font's weight on the -1...1 scale NSFont uses (0 regular, about 0.4 bold, about 0.56 heavy).
+    static func weight(of font: NSFont) -> CGFloat {
+        let traits = font.fontDescriptor.object(forKey: .traits) as? [NSFontDescriptor.TraitKey: Any]
+        return traits?[.weight] as? CGFloat ?? 0
+    }
+
+    static func isBold(_ font: NSFont) -> Bool { weight(of: font) >= 0.35 || font.fontDescriptor.symbolicTraits.contains(.bold) }
+    static func isItalic(_ font: NSFont) -> Bool { font.fontDescriptor.symbolicTraits.contains(.italic) }
+
     /// Installed monospaced font families.
     static let families: [String] = NSFontManager.shared.availableFontFamilies.filter {
         NSFontManager.shared.font(withFamily: $0, traits: [], weight: 5, size: 12)?.isFixedPitch == true

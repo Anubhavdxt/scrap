@@ -199,19 +199,19 @@ final class LiveStyleTests: XCTestCase {
         let h1 = font(tv, at: 3)!, h2 = font(tv, at: 11)!, body = font(tv, at: 17)!
         XCTAssertGreaterThan(h1.pointSize, h2.pointSize)
         XCTAssertGreaterThan(h2.pointSize, body.pointSize)
-        XCTAssertTrue(h1.fontDescriptor.symbolicTraits.contains(.bold))
+        XCTAssertTrue(EditorFont.isBold(h1))
         XCTAssertNotNil(kern(tv, at: 0), "the # is hidden")
     }
 
     func testBoldItalicAndLinkStyles() {
         let (_, tv, _) = makeEditor("**b** *i* [t](https://x.y) end")
         tv.setSelectedRange(NSRange(location: 29, length: 0))
-        XCTAssertTrue(font(tv, at: 2)!.fontDescriptor.symbolicTraits.contains(.bold))
-        XCTAssertTrue(font(tv, at: 7)!.fontDescriptor.symbolicTraits.contains(.italic))
+        XCTAssertTrue(EditorFont.isBold(font(tv, at: 2)!))
+        XCTAssertTrue(EditorFont.isItalic(font(tv, at: 7)!))
         let linkAt = 11
         XCTAssertEqual(tv.textStorage?.attribute(.scrapURL, at: linkAt, effectiveRange: nil) as? String, "https://x.y")
         XCTAssertNotNil(tv.textStorage?.attribute(.underlineStyle, at: linkAt, effectiveRange: nil))
-        XCTAssertFalse(font(tv, at: linkAt)!.fontDescriptor.symbolicTraits.contains(.italic), "links are never italic")
+        XCTAssertFalse(EditorFont.isItalic(font(tv, at: linkAt)!), "links are never italic")
     }
 
     func testColourHighlightsOffUsesOneTextColour() {
@@ -221,7 +221,7 @@ final class LiveStyleTests: XCTestCase {
         on.setSelectedRange(NSRange(location: 22, length: 0)); off.setSelectedRange(NSRange(location: 22, length: 0))
         XCTAssertNotEqual(color(on, at: 3), color(on, at: 20), "bold has its own colour when highlights are on")
         XCTAssertEqual(color(off, at: 3), color(off, at: 20), "and the same colour as plain text when they are off")
-        XCTAssertTrue(font(off, at: 3)!.fontDescriptor.symbolicTraits.contains(.bold), "the weight stays")
+        XCTAssertTrue(EditorFont.isBold(font(off, at: 3)!), "the weight stays")
     }
 
     func testCodeBlocksAndQuotesAreMarkedForDrawing() {
@@ -285,7 +285,10 @@ final class NestedEmphasisStyleTests: XCTestCase {
     }
 
     private func traits(_ tv: NSTextView, at i: Int) -> NSFontDescriptor.SymbolicTraits {
-        (tv.textStorage?.attribute(.font, at: i, effectiveRange: nil) as? NSFont)?.fontDescriptor.symbolicTraits ?? []
+        guard let font = tv.textStorage?.attribute(.font, at: i, effectiveRange: nil) as? NSFont else { return [] }
+        var t = font.fontDescriptor.symbolicTraits
+        if EditorFont.isBold(font) { t.insert(.bold) }   // the heavy weight counts as bold
+        return t
     }
 
     func testTripleMarkersAreBoldAndItalic() {
@@ -321,7 +324,7 @@ final class NestedEmphasisStyleTests: XCTestCase {
         let tv = editor("# Title\nplain")
         let font = tv.textStorage?.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
         XCTAssertGreaterThan(font?.pointSize ?? 0, 14)
-        XCTAssertTrue(font?.fontDescriptor.symbolicTraits.contains(.bold) == true)
+        XCTAssertTrue(font.map(EditorFont.isBold) == true)
     }
 }
 
@@ -446,7 +449,7 @@ final class RenderedFontTests: XCTestCase {
         XCTAssertFalse(font(tv, "bold")!.isFixedPitch)
         XCTAssertTrue(font(tv, "inline")!.isFixedPitch, "inline code stays monospaced")
         XCTAssertTrue(font(tv, "block line")!.isFixedPitch, "code blocks stay monospaced")
-        XCTAssertTrue(font(tv, "bold")!.fontDescriptor.symbolicTraits.contains(.bold), "and bold still works in the proportional font")
+        XCTAssertTrue(EditorFont.isBold(font(tv, "bold")!), "and bold still works in the proportional font")
     }
 
     func testMonospacedChoiceKeepsEverythingMonospaced() {
@@ -556,5 +559,90 @@ final class SelectionFooterSnapshotTests: XCTestCase {
         UserDefaults.standard.set(false, forKey: "rendered")
         tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
         try shot("raw.png")
+    }
+}
+
+/// Bold is one weight heavier than the system's regular "Bold", in every kind of font.
+@MainActor
+final class BoldWeightTests: XCTestCase {
+    private let heavy = NSFont.Weight.heavy.rawValue
+
+    func testProportionalSystemFont() {
+        let f = EditorFont.styled(.systemFont(ofSize: 14), bold: true, italic: false)
+        XCTAssertGreaterThanOrEqual(EditorFont.weight(of: f), heavy - 0.01)
+        XCTAssertFalse(EditorFont.isItalic(f))
+        XCTAssertFalse(f.isFixedPitch)
+        let old = NSFont(descriptor: NSFont.systemFont(ofSize: 14).fontDescriptor.withSymbolicTraits(.bold), size: 14)!
+        XCTAssertGreaterThan(EditorFont.weight(of: f), EditorFont.weight(of: old), "heavier than the old bold")
+    }
+
+    func testMonospacedSystemFontWasOnlySemiboldBefore() {
+        let mono = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        let f = EditorFont.styled(mono, bold: true, italic: false)
+        XCTAssertGreaterThanOrEqual(EditorFont.weight(of: f), heavy - 0.01)
+        XCTAssertTrue(f.isFixedPitch, "still monospaced")
+        XCTAssertEqual(f.pointSize, 14)
+        let old = NSFont(descriptor: mono.fontDescriptor.withSymbolicTraits(.bold), size: 14)!
+        XCTAssertLessThan(EditorFont.weight(of: old), 0.35, "the old bold in a monospaced font was too light to read as bold")
+    }
+
+    func testBoldAndItalicTogetherInEveryFont() {
+        for base in [NSFont.systemFont(ofSize: 14), .monospacedSystemFont(ofSize: 14, weight: .regular)] {
+            let both = EditorFont.styled(base, bold: true, italic: true)
+            XCTAssertTrue(EditorFont.isBold(both) && EditorFont.weight(of: both) >= heavy - 0.01, base.fontName)
+            XCTAssertTrue(EditorFont.isItalic(both), base.fontName)
+            XCTAssertEqual(both.isFixedPitch, base.isFixedPitch, "family kind is kept")
+            // Adding italic to bold text, then bold to italic text, gives the same thing.
+            let a = EditorFont.styled(EditorFont.styled(base, bold: true, italic: false), bold: false, italic: true)
+            let b = EditorFont.styled(EditorFont.styled(base, bold: false, italic: true), bold: true, italic: false)
+            for f in [a, b] { XCTAssertTrue(EditorFont.weight(of: f) >= heavy - 0.01 && EditorFont.isItalic(f), base.fontName) }
+        }
+    }
+
+    func testInstalledFamiliesFallBackToTheirBold() {
+        guard let menlo = NSFontManager.shared.font(withFamily: "Menlo", traits: [], weight: 5, size: 14) else { return }
+        let f = EditorFont.styled(menlo, bold: true, italic: false)
+        XCTAssertTrue(EditorFont.isBold(f), "Menlo only has Regular and Bold, so bold is its Bold")
+        XCTAssertTrue(f.isFixedPitch)
+    }
+
+    func testNotBoldStaysAtItsWeightAndSizeChangesSurvive() {
+        let regular = EditorFont.styled(.systemFont(ofSize: 14), bold: false, italic: true, size: 20)
+        XCTAssertEqual(EditorFont.weight(of: regular), 0, accuracy: 0.01)
+        XCTAssertEqual(regular.pointSize, 20)
+        XCTAssertTrue(EditorFont.isItalic(regular))
+        let bigBold = EditorFont.styled(.monospacedSystemFont(ofSize: 14, weight: .regular), bold: true, italic: false, size: 22)
+        XCTAssertEqual(bigBold.pointSize, 22)
+        XCTAssertGreaterThanOrEqual(EditorFont.weight(of: bigBold), heavy - 0.01)
+    }
+
+    func testBoldTextInTheEditorIsHeavyInBothRenderedFonts() {
+        func weight(_ family: String, rendered: Bool, _ needle: String) -> CGFloat {
+            let tv = HeavyEditor.make("# Head\n**strong** and plain\nlast", family: family, rendered: rendered)
+            let r = (tv.string as NSString).range(of: needle)
+            return EditorFont.weight(of: tv.textStorage!.attribute(.font, at: r.location, effectiveRange: nil) as! NSFont)
+        }
+        XCTAssertGreaterThanOrEqual(weight("system", rendered: true, "strong"), heavy - 0.01, "rendered, proportional")
+        XCTAssertGreaterThanOrEqual(weight("", rendered: true, "strong"), heavy - 0.01, "rendered, monospaced")
+        XCTAssertGreaterThanOrEqual(weight("system", rendered: true, "Head"), heavy - 0.01, "headings too")
+        XCTAssertEqual(weight("system", rendered: true, "plain"), 0, accuracy: 0.01, "plain text is untouched")
+    }
+}
+
+@MainActor
+private enum HeavyEditor {
+    static func make(_ text: String, family: String, rendered: Bool) -> NSTextView {
+        let theme = Themes.all.first { $0.id == "cobalt2-dark" }!
+        let view = NSHostingView(rootView: EditorView(text: .constant(text), theme: theme, fontSize: 14, fontFamily: family, wrap: true, rendered: rendered)
+            .frame(width: 520, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        func find(_ v: NSView) -> NSTextView? { (v as? NSTextView) ?? v.subviews.lazy.compactMap(find).first }
+        let tv = find(view)!
+        tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+        _ = window
+        return tv
     }
 }
