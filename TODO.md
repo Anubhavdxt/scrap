@@ -26,7 +26,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [ ] Backend for say-hi entries (e.g. Supabase table + insert-only policy); must ask for consent again before uploading anything already saved, then flip `sentToServer`
 - [ ] Opt-in anonymous ping only after the above
 - [x] Launch at login
-- [ ] Per-language highlighting for fenced code (currently a generic lexer)
+- [x] Per-language highlighting for fenced code (`CodeLanguage`, 18 language families; unknown languages use a generic lexer)
 - [x] Tests for the app target (EditorModel, 15 tests) and a manual QA checklist (`docs/QA.md`)
 
 ## Housekeeping
