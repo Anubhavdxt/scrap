@@ -21,7 +21,8 @@ struct SearchView: View {
             Divider()
             content
         }
-        .frame(maxWidth: 420, maxHeight: 340)
+        .frame(width: 380)
+        .fixedSize(horizontal: false, vertical: true)
         .onChange(of: query) { _, _ in search() }
     }
 
@@ -47,11 +48,12 @@ struct SearchView: View {
                 }
                 .onChange(of: selection) { _, new in proxy.scrollTo(new) }
             }
+            .frame(maxHeight: 240)
         }
     }
 
     private func note(_ text: String) -> some View {
-        Text(text).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 18)
+        Text(text).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 14)
     }
 
     private func row(_ hit: SearchHit, selected: Bool) -> some View {

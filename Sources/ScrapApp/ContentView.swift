@@ -94,10 +94,14 @@ struct ContentView: View {
         if model.showSearch {
             ZStack {
                 Color.black.opacity(0.3).onTapGesture { model.showSearch = false }
-                SearchView(model: model)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .shadow(radius: 12)
+                VStack {
+                    SearchView(model: model)
+                        .background(.regularMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(radius: 12)
+                        .padding(.top, 56)
+                    Spacer(minLength: 0)
+                }
             }
         }
         if model.showClear {
