@@ -202,6 +202,17 @@ final class PointerPlacementTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(edge.minX, 1440, "it doesn't straddle the two screens")
     }
 
+    /// A small display (CI's 1024 x 768, with its menu bar and Dock) leaves little room: a pointer in the middle pushes the
+    /// window up by the bottom margin instead of letting it run into the Dock. This is what once looked like a bug in a test.
+    func testASmallDisplayKeepsTheWindowClearOfTheBottomMargin() {
+        let small = Screen(frame: NSRect(x: 0, y: 0, width: 1024, height: 768), visible: NSRect(x: 0, y: 63, width: 1024, height: 674))
+        let frame = PointerPlacement.frame(size: NSSize(width: 589, height: 356), pointer: NSPoint(x: 512, y: 400), screens: [small])
+        XCTAssertEqual(frame.minY, 63 + PointerPlacement.margin, accuracy: 0.01, "held back by the margin above the Dock")
+        XCTAssertEqual(frame.maxY, 63 + PointerPlacement.margin + 356, accuracy: 0.01)
+        XCTAssertGreaterThan(frame.maxY, 400 + PointerPlacement.topOffset, "so the top edge sits above where the pointer would have put it")
+        XCTAssertTrue(small.visible.contains(frame))
+    }
+
     func testPointerOutsideEveryScreenFallsBackToTheNearest() {
         let frame = PointerPlacement.frame(size: size, pointer: NSPoint(x: 5000, y: 300), screens: [main])
         XCTAssertTrue(main.visible.contains(frame))
@@ -245,9 +256,11 @@ final class WindowFollowsPointerTests: XCTestCase {
     func testShowingNearThePointerMovesTheWindowThere() throws {
         // Real screens: macOS pulls any shown window back onto them, so a made-up bigger screen can't be tested.
         let screens = PointerPlacement.currentScreens
-        guard let area = screens.first?.visible, area.width > 900, area.height > 600 else { throw XCTSkip("needs a display") }
+        guard let area = screens.first?.visible, area.width > 700, area.height > 500 else { throw XCTSkip("needs a display") }
         let controller = EditorWindowController(model: EditorModel())
-        let centre = NSPoint(x: area.midX, y: area.midY)
+        // Near the top of the screen, so the window fits below the pointer without hitting the bottom margin (a small
+        // display, like CI's 1024×768, would otherwise push it up and the exact position wouldn't be the pointer's).
+        let centre = NSPoint(x: area.midX, y: area.maxY - 100)
         controller.show(near: centre)
         let window = try XCTUnwrap(controller.window)
         let context = "window \(window.frame), visible area \(area), pointer \(centre)"
@@ -255,7 +268,7 @@ final class WindowFollowsPointerTests: XCTestCase {
         XCTAssertEqual(window.frame.maxY, centre.y + PointerPlacement.topOffset, accuracy: 2, context)
         XCTAssertTrue(area.contains(window.frame), "stays on screen: \(context)")
 
-        let other = NSPoint(x: area.minX + area.width * 0.3, y: area.minY + area.height * 0.6)
+        let other = NSPoint(x: area.minX + area.width * 0.3, y: area.maxY - 120)
         controller.show(near: other)
         XCTAssertEqual(window.frame.midX, other.x, accuracy: 2, "it follows the pointer each time (window \(window.frame), visible area \(area))")
         controller.hide()
