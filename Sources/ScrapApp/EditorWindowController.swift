@@ -27,9 +27,13 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     var isVisible: Bool { window?.isVisible == true }
     var isKey: Bool { window?.isKeyWindow == true }
 
-    func show() {
+    /// Shows the window; with `pointer` (the global mouse location) it is moved so the pointer is in its top bar.
+    func show(near pointer: NSPoint? = nil, screens: [PointerPlacement.Screen] = PointerPlacement.currentScreens) {
         let window = ensureWindow()
         applySettings(to: window)
+        if let pointer {
+            window.setFrame(PointerPlacement.frame(size: window.frame.size, pointer: pointer, screens: screens), display: false)
+        }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
