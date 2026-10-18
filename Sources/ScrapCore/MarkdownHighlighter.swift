@@ -34,6 +34,8 @@ public struct Span: Equatable {
     public var code = false
     /// A `` `code` `` run.
     public var inlineCode = false
+    /// On the opening fence of a code block: the language written after the backticks (`swift` in "```swift").
+    public var blockLabel: String? = nil
 }
 
 /// Line-based Markdown highlighter; fenced code is lexed per language (see `CodeLanguage`). Pure: returns spans only.
@@ -51,17 +53,22 @@ public enum MarkdownHighlighter {
 
             if let marker = fenceMarker(trimmed) {
                 if let open = fence {
+                    // Inside a block only a matching, bare fence ends it; any other fence-looking line is just code.
                     if marker.hasPrefix(open.prefix(1)) && marker.count >= open.count && trimmed.dropFirst(marker.count).allSatisfy({ $0 == " " }) {
                         fence = nil
                         lexState = LexState()
+                        spans.append(Span(range: range, token: .comment, syntax: true, block: true))
+                        return
                     }
                 } else {
                     fence = marker
-                    language = CodeLanguage.forFence(trimmed.dropFirst(marker.count).trimmingCharacters(in: .whitespaces))
+                    let info = trimmed.dropFirst(marker.count).trimmingCharacters(in: .whitespaces)
+                    language = CodeLanguage.forFence(info)
+                    let label = info.split(whereSeparator: { $0 == " " || $0 == "{" || $0 == "\t" }).first.map(String.init)
                     lexState = LexState()
+                    spans.append(Span(range: range, token: .comment, syntax: true, block: true, blockLabel: label))
+                    return
                 }
-                spans.append(Span(range: range, token: .comment, syntax: true, block: true))
-                return
             }
             if fence != nil {
                 spans.append(Span(range: range, token: .base, block: true))
