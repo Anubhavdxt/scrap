@@ -11,6 +11,8 @@ public struct SearchHit: Equatable, Identifiable {
     public let matches: [NSRange]
     /// Where to select in the pad's own text (UTF-16 offsets): the first match.
     public let target: NSRange
+    /// The neighbouring line (the next one with text, else the previous), trimmed and cropped.
+    public let context: String
     public let score: Double
     public var id: String { "\(pad):\(line)" }
 }
@@ -28,7 +30,8 @@ public struct SearchResult: Equatable {
 public enum PadSearch {
     public static let maxWords = 6
     private static let compare: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
-    private static let displayLength = 90
+    private static let displayLength = 110
+    private static let contextLength = 90
     private static let wordPattern = try! NSRegularExpression(pattern: "[\\p{L}\\p{N}_]+")
 
     private struct Candidate {
@@ -49,8 +52,10 @@ public enum PadSearch {
         let phrase = words.joined(separator: " ")
 
         var all: [Candidate] = []
+        var texts: [Int: NSString] = [:]
         for pad in pads {
             let ns = pad.text as NSString
+            texts[pad.number] = ns
             var lineNumber = 0
             ns.enumerateSubstrings(in: NSRange(location: 0, length: ns.length), options: [.byLines, .substringNotRequired]) { _, range, _, _ in
                 lineNumber += 1
@@ -90,7 +95,7 @@ public enum PadSearch {
             let count = perPadCount[candidate.pad, default: 0]
             if count >= perPad { continue }
             perPadCount[candidate.pad] = count + 1
-            hits.append(makeHit(candidate))
+            hits.append(makeHit(candidate, in: texts[candidate.pad] ?? ""))
             if hits.count >= limit { break }
         }
         return SearchResult(hits: hits, isClosest: closest)
@@ -201,7 +206,7 @@ public enum PadSearch {
 
     // MARK: Display
 
-    private static func makeHit(_ c: Candidate) -> SearchHit {
+    private static func makeHit(_ c: Candidate, in pad: NSString) -> SearchHit {
         let full = c.text as NSString
         let sortedRanges = merged(c.ranges)
         let first = sortedRanges.first ?? NSRange(location: 0, length: 0)
@@ -215,7 +220,7 @@ public enum PadSearch {
         var window = NSRange(location: lead, length: end - lead)
         var prefix = "", suffix = ""
         if window.length > displayLength {
-            let start = max(window.location, first.location - 30)
+            let start = max(window.location, first.location - 40)
             let length = min(displayLength, window.upperBound - start)
             window = full.rangeOfComposedCharacterSequences(for: NSRange(location: start, length: length))
             window = NSIntersectionRange(window, NSRange(location: lead, length: end - lead))
@@ -229,7 +234,28 @@ public enum PadSearch {
             let clipped = NSIntersectionRange(r, window)
             if clipped.length > 0 { shownRanges.append(NSRange(location: clipped.location + shift, length: clipped.length)) }
         }
-        return SearchHit(pad: c.pad, line: c.line, text: shown, matches: shownRanges, target: target, score: c.score)
+        return SearchHit(pad: c.pad, line: c.line, text: shown, matches: shownRanges, target: target, context: neighbour(of: c.lineRange, in: pad), score: c.score)
+    }
+
+    /// The next line with text after `line`; if it is the last one, the previous line with text.
+    private static func neighbour(of line: NSRange, in pad: NSString) -> String {
+        var found = ""
+        var after = pad.lineRange(for: line).upperBound
+        while after < pad.length, found.isEmpty {
+            let r = pad.lineRange(for: NSRange(location: after, length: 0))
+            found = pad.substring(with: r).trimmingCharacters(in: .whitespacesAndNewlines)
+            after = r.upperBound
+        }
+        var before = line.location
+        while before > 0, found.isEmpty {
+            let r = pad.lineRange(for: NSRange(location: before - 1, length: 0))
+            found = pad.substring(with: r).trimmingCharacters(in: .whitespacesAndNewlines)
+            before = r.location
+        }
+        if (found as NSString).length > contextLength {
+            return (found as NSString).substring(to: contextLength).trimmingCharacters(in: .whitespaces) + "…"
+        }
+        return found
     }
 
     private static func isSpace(_ unit: unichar) -> Bool { unit == 32 || unit == 9 || unit == 160 }
