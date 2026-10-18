@@ -25,6 +25,15 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Right-click the icon: Settings… and Quit work
 - [ ] Opens at the size set in Settings > Window (columns × rows) and resizes live when it changes
 
+## Detached window, Dock icon
+- [ ] The pin turns the popover into a window of the same size; the pin shows filled and attaches it back; position and size are remembered across hides and relaunches
+- [ ] The window's close button, ⌘W and (with the setting) Esc hide it without losing text; the hotkey, the menu bar icon and the Dock icon bring it back
+- [ ] The traffic lights sit left of the pad dots; dragging the empty top bar moves the window; resizing works, with a sensible minimum
+- [ ] Settings > General: "Show in" Menu bar / Dock / Both. Dock-only: no menu bar icon, the window opens at launch, no pin, "Open as a window" is on and greyed out. Both: Dock icon and menu bar icon; the menu bar icon opens the popover or window per the pin. Menu bar: no Dock icon
+- [ ] With a Dock icon the real menu bar shows scrap's menus (Edit, Format, View) and ⌘Q quits; clicking the Dock icon shows the editor
+- [ ] "Keep the window above other windows" floats it; switching between popover and window while open keeps the text and caret
+- [ ] The gear opens settings attached to the window, and clicking in the editor closes only settings
+
 ## Editor
 - [ ] ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and ⇧⌘Z work
 - [ ] Markdown is highlighted (headings, bold, italic, code, links, quotes, lists, fenced code) in a few themes, dark and light

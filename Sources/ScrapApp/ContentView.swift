@@ -111,16 +111,32 @@ struct ContentView: View {
 
 struct TopBar: View {
     @ObservedObject var model: EditorModel
+    @Environment(\.scrapWindowed) private var windowed
+    @AppStorage("iconMode") private var iconMode = IconMode.menuBar
+
+    private var canAttach: Bool { iconMode != .dock }
 
     var body: some View {
         ZStack {
             PadDots(model: model)
-            HStack {
-                Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
-                    Image(systemName: "xmark.circle")
+            HStack(spacing: 12) {
+                if windowed {
+                    // Room for the window's traffic lights, which sit over this bar.
+                    Color.clear.frame(width: 62, height: 1)
+                } else {
+                    Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .help("Close")
                 }
-                .help("Close")
                 Spacer()
+                if canAttach {
+                    // Detach the popover into a window, or attach the window back to the menu bar icon.
+                    Button { NotificationCenter.default.post(name: .toggleDetach, object: nil) } label: {
+                        Image(systemName: windowed ? "pin.fill" : "pin")
+                    }
+                    .help(windowed ? "Attach to the menu bar icon" : "Keep as a window")
+                }
                 Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
                     Image(systemName: "gearshape")
                 }
@@ -248,12 +264,16 @@ struct FooterButtons: View {
     }
 }
 
-/// Lets the settings popover attach to the gear button.
+/// Lets the settings popover attach to the gear button. The view registers itself when it joins a window, so the
+/// anchor is always the gear of whichever editor (popover or window) is on screen.
 struct GearAnchor: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { SettingsAnchor.view = view }
-        return view
+    final class AnchorView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil { SettingsAnchor.view = self }
+        }
     }
+
+    func makeNSView(context: Context) -> NSView { AnchorView() }
     func updateNSView(_ view: NSView, context: Context) {}
 }

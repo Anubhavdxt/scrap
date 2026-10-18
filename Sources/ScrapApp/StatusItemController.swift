@@ -7,6 +7,7 @@ extension Notification.Name {
     static let closePopover = Notification.Name("scrap.closePopover")
     static let toggleSettings = Notification.Name("scrap.toggleSettings")
     static let editorCommand = Notification.Name("scrap.editorCommand")
+    static let toggleDetach = Notification.Name("scrap.toggleDetach")
 }
 
 /// Formatting and list commands sent from menus and buttons to the text view.
@@ -21,18 +22,21 @@ enum SettingsAnchor {
     static weak var view: NSView?
 }
 
-/// Menu bar icon, the editor popover it drops down, and a settings popover attached to the gear.
-/// Both popovers stay open together; we handle dismissal ourselves (click elsewhere, Esc, app switch).
+/// The editor's home. Depending on the Settings it is a popover hanging from the menu bar icon, or a normal window
+/// (detached, or when there is no menu bar icon), with a menu bar icon, a Dock icon, or both. A settings popover attaches
+/// to the gear in either. Popovers are dismissed here (click elsewhere, Esc, app switch); the window stays until closed.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private let settingsPopover = NSPopover()
-    private var monitors: [Any] = []
+    private lazy var windowController = EditorWindowController(model: EditorModel.shared)
+    private var clickMonitors: [Any] = []
+    private var keyMonitor: Any?
     private var padObserver: AnyCancellable?
+    private var policy = DisplayPolicy.current()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
         MainMenu.install()
         DispatchQueue.global(qos: .utility).async { _ = EditorFont.families } // warm the font list for Settings
         let model = EditorModel.shared
@@ -49,14 +53,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 model.flush()
                 self?.settingsPopover.performClose(nil)
-                self?.removeMonitors()
+                self?.updateClickMonitors()
             }
         }
+        center.addObserver(forName: NSPopover.willCloseNotification, object: settingsPopover, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateClickMonitors() }
+        }
         center.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.applyLayout(); self?.updateStatusImage() }
+            MainActor.assumeIsolated { self?.defaultsChanged() }
         }
         center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.closeAll() }
+            MainActor.assumeIsolated { self?.closeTransient() }
         }
         center.addObserver(forName: .closePopover, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.closeAll() }
@@ -64,20 +71,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         center.addObserver(forName: .toggleSettings, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.toggleSettings() }
         }
+        center.addObserver(forName: .toggleDetach, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.toggleDetach() }
+        }
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem = item
-        updateStatusImage()
+        applyPolicy(initial: true)
         // The icon follows the current pad's colour (Settings > General can turn that off).
         padObserver = model.$pad.sink { [weak self] _ in self?.updateStatusImage() }
-        item.button?.target = self
-        item.button?.action = #selector(clicked)
-        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        statusItem = item
+        installKeyMonitor()
 
         let hotKeys = HotKeyManager.shared
         hotKeys.action = { [weak self] in self?.toggle() }
         hotKeys.start()
+
+        // With no menu bar icon there is nothing to click, so start with the window open.
+        if !policy.showsStatusItem { windowController.show() }
+    }
+
+    /// Clicking the Dock icon brings the editor back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        show()
+        return false
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    // MARK: Settings that change how scrap shows up
+
+    private func defaultsChanged() {
+        if DisplayPolicy.current() != policy { applyPolicy(initial: false) }
+        applyLayout()
+        updateStatusImage()
+    }
+
+    /// Applies the icon setting (menu bar, Dock, both) and moves the editor between popover and window when that changed.
+    private func applyPolicy(initial: Bool) {
+        let old = policy
+        let new = DisplayPolicy.current()
+        policy = new
+        let applied = NSApp.setActivationPolicy(new.showsDockIcon ? .regular : .accessory)
+        if !applied { NSLog("scrap: couldn't switch the activation policy (dock icon: \(new.showsDockIcon))") }
+        if new.showsStatusItem { ensureStatusItem() } else { removeStatusItem() }
+        guard !initial, new.usesWindow != old.usesWindow else { return }
+        if new.usesWindow, popover.isShown {
+            closeTransient()
+            windowController.show()
+        } else if !new.usesWindow, windowController.isVisible {
+            windowController.hide()
+            showPopover()
+        }
+    }
+
+    private func toggleDetach() {
+        guard policy.canAttach else { return } // with only a Dock icon the editor is always a window
+        UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "detached"), forKey: "detached")
+    }
+
+    /// Applies the saved window size and light/dark choice.
+    private func applyLayout() {
+        let size = WindowSize.current()
+        if popover.contentSize != size { popover.contentSize = size }
+        let appearance: NSAppearance? = switch UserDefaults.standard.string(forKey: "appearance") {
+        case "dark": NSAppearance(named: .darkAqua)
+        case "light": NSAppearance(named: .aqua)
+        default: nil
+        }
+        popover.appearance = appearance
+        settingsPopover.appearance = appearance
+        windowController.applySettings()
+    }
+
+    // MARK: Menu bar icon
+
+    private func ensureStatusItem() {
+        guard statusItem == nil else { return }
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.target = self
+        item.button?.action = #selector(clicked)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        statusItem = item
+        updateStatusImage()
+    }
+
+    private func removeStatusItem() {
+        guard let item = statusItem else { return }
+        NSStatusBar.system.removeStatusItem(item)
+        statusItem = nil
     }
 
     /// The menu bar icon: the logo tinted with the current pad's colour, or the plain template image.
@@ -110,66 +189,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return controller
     }
 
-    /// Applies the saved window size and light/dark choice to both popovers.
-    private func applyLayout() {
-        let size = WindowSize.current()
-        if popover.contentSize != size { popover.contentSize = size }
-        let appearance: NSAppearance? = switch UserDefaults.standard.string(forKey: "appearance") {
-        case "dark": NSAppearance(named: .darkAqua)
-        case "light": NSAppearance(named: .aqua)
-        default: nil
-        }
-        popover.appearance = appearance
-        settingsPopover.appearance = appearance
-    }
-
-    // MARK: Status item
-
     @objc private func clicked() {
         if NSApp.currentEvent?.type == .rightMouseUp { showMenu() } else { toggle() }
     }
 
     private func showMenu() {
-        closeAll()
+        closeTransient()
         let menu = NSMenu()
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit scrap", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        // Attach the menu only for this click so left-clicks keep toggling the popover.
+        // Attach the menu only for this click so left-clicks keep toggling the editor.
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
     }
 
     @objc private func openSettings() {
-        if !popover.isShown { show() }
         if !settingsPopover.isShown { toggleSettings() }
     }
 
     // MARK: Show and hide
 
+    private var editorVisible: Bool { policy.usesWindow ? windowController.isVisible : popover.isShown }
+
     private func toggle() {
-        if popover.isShown { closeAll() } else { show() }
+        if policy.usesWindow {
+            // A visible window that isn't in front comes forward; one that is in front goes away.
+            if windowController.isVisible && NSApp.isActive { closeAll() } else { show() }
+        } else if popover.isShown {
+            closeAll()
+        } else {
+            show()
+        }
     }
 
     private func show() {
-        guard let button = statusItem?.button else { return }
+        if policy.usesWindow || statusItem?.button == nil { windowController.show() } else { showPopover() }
+    }
+
+    private func showPopover() {
+        guard let button = statusItem?.button else { return windowController.show() }
         applyLayout()
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
-        installMonitors()
+        updateClickMonitors()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             guard !EditorModel.shared.showSayHi else { return }
             NotificationCenter.default.post(name: .focusEditor, object: nil)
         }
     }
 
-    private func closeAll() {
+    /// Closes the things that are dismissed by clicking away: the settings popover and the editor popover.
+    private func closeTransient() {
         settingsPopover.performClose(nil)
         popover.performClose(nil)
+    }
+
+    /// Closes everything, the editor window included.
+    private func closeAll() {
+        closeTransient()
+        if windowController.isVisible { windowController.hide() }
     }
 
     private func toggleSettings() {
@@ -177,24 +260,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsPopover.performClose(nil)
             return
         }
-        if !popover.isShown { show() }
-        guard let anchor = SettingsAnchor.view ?? statusItem?.button else { return }
-        settingsPopover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        guard editorVisible else {
+            show()
+            // Let the editor lay out so the gear exists before the settings attach to it.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.presentSettings() }
+            return
+        }
+        presentSettings()
+    }
+
+    private func presentSettings() {
+        guard !settingsPopover.isShown else { return }
+        let gear = SettingsAnchor.view.flatMap { $0.window?.isVisible == true ? $0 : nil }
+        guard let anchor = gear ?? windowController.window?.contentView ?? statusItem?.button else { return }
+        let rect = gear == nil && anchor === windowController.window?.contentView
+            ? NSRect(x: anchor.bounds.maxX - 40, y: anchor.isFlipped ? 4 : anchor.bounds.maxY - 28, width: 24, height: 24)
+            : anchor.bounds
+        settingsPopover.show(relativeTo: rect, of: anchor, preferredEdge: .minY)
+        updateClickMonitors()
     }
 
     // MARK: Dismissal
 
-    private func installMonitors() {
-        guard monitors.isEmpty else { return }
-        // Clicks in other apps or the menu bar close both popovers.
+    /// Esc: closes settings first, then the editor, unless an overlay (palette, clear, say hi) is using the key.
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            MainActor.assumeIsolated {
+                guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
+                let model = EditorModel.shared
+                if model.showPalette || model.showClear || model.showSayHi { return event }
+                if self.settingsPopover.isShown { self.settingsPopover.performClose(nil); return nil }
+                let editorKey = self.policy.usesWindow ? self.windowController.isKey : self.popover.isShown
+                guard editorKey else { return event }
+                // "Escape closes the window" can be turned off in Settings > General.
+                guard UserDefaults.standard.object(forKey: "escCloses") as? Bool ?? true else { return event }
+                self.closeAll()
+                return nil
+            }
+        }
+    }
+
+    /// Click monitors run only while a popover is open: a click in another app closes the popovers, and a click in the
+    /// editor closes settings (but not on the gear, which toggles it).
+    private func updateClickMonitors() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let wanted = self.popover.isShown || self.settingsPopover.isShown
+            if wanted, self.clickMonitors.isEmpty { self.installClickMonitors() }
+            if !wanted { self.clickMonitors.forEach(NSEvent.removeMonitor); self.clickMonitors = [] }
+        }
+    }
+
+    private func installClickMonitors() {
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown], handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.closeAll() }
-        }) { monitors.append(global) }
-        // A click in the editor popover closes settings only (the gear toggles it itself).
+            MainActor.assumeIsolated { self?.closeTransient() }
+        }) { clickMonitors.append(global) }
         if let click = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
             MainActor.assumeIsolated {
-                guard let self, self.settingsPopover.isShown,
-                      event.window === self.popover.contentViewController?.view.window else { return event }
+                guard let self, self.settingsPopover.isShown else { return event }
+                let editorWindows = [self.popover.contentViewController?.view.window, self.windowController.window]
+                guard editorWindows.contains(where: { $0 != nil && $0 === event.window }) else { return event }
                 if let anchor = SettingsAnchor.view {
                     let point = anchor.convert(event.locationInWindow, from: nil)
                     if anchor.bounds.insetBy(dx: -6, dy: -6).contains(point) { return event }
@@ -202,24 +327,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.settingsPopover.performClose(nil)
                 return event
             }
-        }) { monitors.append(click) }
-        // Esc closes settings first, then the editor, unless an overlay (palette, clear) is using it.
-        if let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
-            MainActor.assumeIsolated {
-                guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
-                let model = EditorModel.shared
-                if model.showPalette || model.showClear || model.showSayHi { return event }
-                if self.settingsPopover.isShown { self.settingsPopover.performClose(nil); return nil }
-                // "Escape closes window" can be turned off in Settings > General.
-                guard UserDefaults.standard.object(forKey: "escCloses") as? Bool ?? true else { return event }
-                self.closeAll()
-                return nil
-            }
-        }) { monitors.append(local) }
-    }
-
-    private func removeMonitors() {
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors = []
+        }) { clickMonitors.append(click) }
     }
 }

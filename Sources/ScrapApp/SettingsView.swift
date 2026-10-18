@@ -33,6 +33,9 @@ struct SettingsView: View {
     @AppStorage("keepIndent") private var keepIndent = true
     @AppStorage("tintMenuBar") private var tintMenuBar = true
     @AppStorage("escCloses") private var escCloses = true
+    @AppStorage("iconMode") private var iconMode = IconMode.menuBar
+    @AppStorage("detached") private var detached = false
+    @AppStorage("windowFloating") private var windowFloating = false
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
@@ -172,8 +175,20 @@ struct SettingsView: View {
                 .toggleStyle(.checkbox)
             }
             note("Lists: bullets, numbers and tasks. Indentation applies to any line that starts with spaces or tabs.")
+            row("Show in") {
+                Picker("", selection: $iconMode) {
+                    ForEach(IconMode.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 220)
+            }
+            note(iconMode == .dock ? "With only a Dock icon, scrap opens as a window." : "The menu bar icon opens the editor as a popover.")
             row("Window") {
                 VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Open as a window instead of a popover", isOn: Binding(get: { detached || iconMode == .dock }, set: { detached = $0 }))
+                        .disabled(iconMode == .dock)
+                    Toggle("Keep the window above other windows", isOn: $windowFloating)
                     Toggle("Escape closes the window", isOn: $escCloses)
                     Toggle("Tint the menu bar icon with the pad colour", isOn: $tintMenuBar)
                 }
