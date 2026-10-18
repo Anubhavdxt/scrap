@@ -1,8 +1,8 @@
 class Scrap < Formula
   desc "Free, open-source, keyboard-first scratchpad for the macOS menu bar"
   homepage "https://github.com/Anubhavdxt/scrap"
-  url "https://github.com/Anubhavdxt/scrap/archive/refs/tags/v0.1.1.tar.gz"
-  sha256 "81cf672973839c499924d20879d4bc6a7b50004d08a283da21f56a41383a71bb"
+  url "https://github.com/Anubhavdxt/scrap/archive/refs/tags/v0.2.0.tar.gz"
+  sha256 "cef31f2db219364a263f7b1af3558c265f718b1656341023cafa850dd14658d3"
   license "MIT"
   head "https://github.com/Anubhavdxt/scrap.git", branch: "main"
 
