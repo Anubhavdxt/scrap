@@ -58,18 +58,15 @@ enum MarkdownStyler {
         let themed = span.code || style.colorHighlights || span.token == .comment || span.token == .base
         attrs[.foregroundColor] = themed ? NSColor(hex: style.theme.color(span.token)) : base
 
-        // Fonts: headings are larger and bold; emphasis adds weight and slant.
+        // Fonts: headings are larger and bold; emphasis adds weight and slant. These are merged into the font already
+        // there, so overlapping spans stack (`**bold *both* bold**`) instead of the last one winning.
         // Themes italicise some tokens (comments, types); links, struck text and plain base text never are.
         let themeItalic = style.theme.italic.contains(span.token) && !span.strike && span.url == nil && span.token != .base
         let italic = span.italic || (themeItalic && (span.code || style.colorHighlights))
-        var size = style.baseFont.pointSize
-        if span.heading > 0 { size *= MarkdownStyle.headingScale[min(span.heading, 6) - 1] }
-        if span.bold || italic || size != style.baseFont.pointSize {
-            var traits: NSFontDescriptor.SymbolicTraits = []
-            if span.bold { traits.insert(.bold) }
-            if italic { traits.insert(.italic) }
-            attrs[.font] = NSFont(descriptor: style.baseFont.fontDescriptor.withSymbolicTraits(traits), size: size) ?? style.baseFont
-        }
+        var traits: NSFontDescriptor.SymbolicTraits = []
+        if span.bold { traits.insert(.bold) }
+        if italic { traits.insert(.italic) }
+        let size = span.heading > 0 ? style.baseFont.pointSize * MarkdownStyle.headingScale[min(span.heading, 6) - 1] : nil
 
         if span.strike {
             // Finished tasks and ~~struck~~ text: struck through and dimmed, not themed like a comment.
@@ -78,12 +75,13 @@ enum MarkdownStyler {
         }
         if span.inlineCode { attrs[.backgroundColor] = base.withAlphaComponent(0.12) }
         if let url = span.url {
-            if attrs[.font] == nil { attrs[.font] = style.baseFont }   // not the italic of the `[ ](…)` span underneath
+            attrs[.font] = style.baseFont   // not the italic of the `[ ](…)` span underneath
             attrs[.foregroundColor] = style.colorHighlights ? style.accent : base
             attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
             attrs[.scrapURL] = url
         }
         storage.addAttributes(attrs, range: span.range)
+        if !traits.isEmpty || size != nil { addTraits(traits, size: size, to: storage, range: span.range, style: style) }
 
         if span.block {
             storage.addAttribute(.scrapBlock, value: 1, range: paragraph(span.range, ns))
@@ -101,6 +99,17 @@ enum MarkdownStyler {
             storage.addAttribute(.paragraphStyle, value: indent, range: paragraph(span.range, ns))
         }
         if let marker = span.marker { applyMarker(marker, over: span.range, to: storage, ns: ns, style: style) }
+    }
+
+    /// Adds bold/italic (and optionally a size) to whatever font each part of `range` already has.
+    private static func addTraits(_ traits: NSFontDescriptor.SymbolicTraits, size: CGFloat?, to storage: NSTextStorage, range: NSRange, style: MarkdownStyle) {
+        guard range.length > 0 else { return }
+        storage.enumerateAttribute(.font, in: range, options: []) { value, run, _ in
+            let current = (value as? NSFont) ?? style.baseFont
+            let combined = current.fontDescriptor.symbolicTraits.union(traits)
+            let font = NSFont(descriptor: style.baseFont.fontDescriptor.withSymbolicTraits(combined), size: size ?? current.pointSize) ?? current
+            storage.addAttribute(.font, value: font, range: run)
+        }
     }
 
     /// Markdown punctuation: dimmed, or collapsed to nothing unless the caret is on its line.
