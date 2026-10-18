@@ -88,12 +88,6 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var overlays: some View {
-        if model.showSymbols {
-            ZStack(alignment: .bottomTrailing) {
-                Color.black.opacity(0.001).onTapGesture { model.showSymbols = false }
-                SymbolPicker(model: model).padding(.trailing, 10).padding(.bottom, 32)
-            }
-        }
         if model.showSayHi { SayHiView(model: model, theme: theme) }
         if model.showPalette {
             ZStack {
@@ -278,7 +272,8 @@ struct FooterButtons: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Button { model.showSymbols.toggle() } label: { Image(systemName: "asterisk") }
+            Button { NotificationCenter.default.post(name: .toggleSymbols, object: nil) } label: { Image(systemName: "asterisk") }
+                .background(SymbolButtonAnchor())
                 .help("Bullets, dividers and symbols")
             Button { rendered.toggle() } label: { Image(systemName: rendered ? "eye" : "eye.slash") }
                 .help(rendered ? "Show raw Markdown, with all the marks visible (⌥⌘R)" : "Show rendered text (⌥⌘R)")
@@ -318,6 +313,19 @@ struct GearAnchor: NSViewRepresentable {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             if window != nil { SettingsAnchor.view = self }
+        }
+    }
+
+    func makeNSView(context: Context) -> NSView { AnchorView() }
+    func updateNSView(_ view: NSView, context: Context) {}
+}
+
+/// Lets the symbol picker open below the `*` button (see `GearAnchor`).
+struct SymbolButtonAnchor: NSViewRepresentable {
+    final class AnchorView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil { SymbolAnchor.view = self }
         }
     }
 

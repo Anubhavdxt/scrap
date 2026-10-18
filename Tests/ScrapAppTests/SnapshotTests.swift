@@ -790,17 +790,50 @@ final class SmartBulletEditorTests: XCTestCase {
         }
     }
 
-    func testPickerOpensAndTheEscapeKeyClosesItViaTheModelFlag() {
-        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-picker-\(UUID().uuidString)")
-        try? FileManager.default.createDirectory(at: home.appendingPathComponent("pads"), withIntermediateDirectories: true)
+    func testChoosingAnItemInsertsAndClosesThePicker() {
+        let item = SymbolCatalog.groups[2].items[0]   // a bullet character
+        var inserted: SymbolItem.Kind?
+        var closed = false
+        let a = NotificationCenter.default.addObserver(forName: .insertSymbol, object: nil, queue: nil) { note in inserted = (note.object as? SymbolRequest)?.kind }
+        let b = NotificationCenter.default.addObserver(forName: .closeSymbols, object: nil, queue: nil) { _ in closed = true }
+        defer { NotificationCenter.default.removeObserver(a); NotificationCenter.default.removeObserver(b) }
+        SymbolPicker.send(item)
+        XCTAssertEqual(inserted, item.kind)
+        XCTAssertTrue(closed)
+    }
+
+    func testInsertionWorksWhileTheEditorIsNotTheKeyWindow() {
+        // The picker is a window of its own, so when something is chosen the editor's window is not key.
+        let (window, tv, _, box) = editor("alpha beta")
+        XCTAssertFalse(window.isKeyWindow)
+        tv.setSelectedRange(NSRange(location: 5, length: 0))
+        SymbolRequest(.text("→")).post()
+        XCTAssertEqual(box.text, "alpha→ beta")
+        SymbolRequest(.smartBullet(0)).post()
+        XCTAssertEqual(box.text, "○ alpha→ beta")
+    }
+
+    func testThePickerAnchorsToTheStarButtonInTheFooter() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-anchor-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("pads"), withIntermediateDirectories: true)
         let old = getenv("HOME").map { String(cString: $0) }
         setenv("HOME", home.path, 1)
         defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
-        try? Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
-        let model = EditorModel()
-        XCTAssertFalse(model.showSymbols)
-        model.showSymbols = true
-        XCTAssertTrue(model.showSymbols)
+        try Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        defer { UserDefaults.standard.removeObject(forKey: "sayHiDone") }
+        let size = WindowSize.current()
+        let view = NSHostingView(rootView: ContentView(model: EditorModel()).frame(width: size.width, height: size.height))
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        let anchor = try XCTUnwrap(SymbolAnchor.view, "the footer's * button registers itself")
+        XCTAssertTrue(anchor.window === window)
+        let inWindow = anchor.convert(anchor.bounds, to: nil)
+        XCTAssertLessThan(inWindow.midY, window.contentLayoutRect.height * 0.15, "it sits in the footer, at the bottom of the window")
+        XCTAssertGreaterThan(inWindow.midX, window.contentLayoutRect.width * 0.6, "towards the right, with the other footer buttons")
+        XCTAssertFalse(anchor.isFlipped, "so .minY puts the picker below it")
     }
 
     // MARK: Raw mode and bold (follow-up to the heavier bold)
@@ -832,8 +865,8 @@ final class PickerSnapshotTests: XCTestCase {
         defer { UserDefaults.standard.removeObject(forKey: "sayHiDone") }
         let model = EditorModel()
         let size = WindowSize.current()
-        let view = NSHostingView(rootView: ContentView(model: model).frame(width: size.width, height: size.height + 120))
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: CGSize(width: size.width, height: size.height + 120)), styleMask: [.titled], backing: .buffered, defer: false)
+        let view = NSHostingView(rootView: ContentView(model: model).frame(width: size.width, height: size.height))
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = view
         view.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.5))
@@ -846,7 +879,56 @@ final class PickerSnapshotTests: XCTestCase {
             try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
         }
         try shot("bullets.png")
-        model.showSymbols = true
-        try shot("picker.png")
+        // The picker's own content (it opens as a popover below the footer, not over the note).
+        let picker = NSHostingView(rootView: SymbolPicker().background(Color(nsColor: .windowBackgroundColor)))
+        picker.frame = NSRect(origin: .zero, size: SymbolPicker.size)
+        let pickerWindow = NSWindow(contentRect: picker.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        pickerWindow.contentView = picker
+        picker.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        let rep = try XCTUnwrap(picker.bitmapImageRepForCachingDisplay(in: picker.bounds))
+        picker.cacheDisplay(in: picker.bounds, to: rep)
+        try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent("picker.png"))
+    }
+}
+
+/// The picker as a real popover: where does it land?
+@MainActor
+final class SymbolPopoverPlacementTests: XCTestCase {
+    func testThePickerOpensBelowTheEditorAndNotOverIt() throws {
+        _ = NSApplication.shared
+        guard let screen = NSScreen.main?.visibleFrame, screen.height > 700 else { throw XCTSkip("needs a display with room below a window") }
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-place-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("pads"), withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        defer { UserDefaults.standard.removeObject(forKey: "sayHiDone") }
+
+        let size = CGSize(width: 560, height: 300)
+        let view = NSHostingView(rootView: ContentView(model: EditorModel()).frame(width: size.width, height: size.height))
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        // Near the top of the screen, so there is room underneath.
+        window.setFrameTopLeftPoint(NSPoint(x: screen.minX + 200, y: screen.maxY - 40))
+        window.orderFront(nil)
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        let anchor = try XCTUnwrap(SymbolAnchor.view)
+
+        let popover = NSPopover()
+        popover.behavior = .applicationDefined
+        popover.contentViewController = NSHostingController(rootView: SymbolPicker())
+        popover.contentSize = SymbolPicker.size
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+        defer { popover.performClose(nil); window.orderOut(nil) }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        let picker = try XCTUnwrap(popover.contentViewController?.view.window).frame
+        let editor = window.frame
+        XCTAssertLessThanOrEqual(picker.maxY, editor.minY + 20, "the picker hangs below the window (its arrow may overlap the window's bottom edge): picker \(picker), window \(editor)")
+        XCTAssertFalse(picker.intersects(editor.insetBy(dx: 0, dy: 20)), "so it doesn't cover the note: picker \(picker), window \(editor)")
+        XCTAssertEqual(picker.midX, anchor.convert(anchor.bounds, to: nil).midX + editor.minX, accuracy: 40, "under the * button")
     }
 }

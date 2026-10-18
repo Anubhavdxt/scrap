@@ -75,7 +75,8 @@ struct EditorView: NSViewRepresentable {
             tv.flatMap { $0.window?.makeFirstResponder($0) }
         }
         context.coordinator.symbolObserver = NotificationCenter.default.addObserver(forName: .insertSymbol, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] note in
-            guard let tv, tv.window?.isKeyWindow == true, let request = note.object as? SymbolRequest else { return }
+            // The picker is a window of its own, so the editor isn't the key window while it is open.
+            guard let tv, tv.window != nil, let request = note.object as? SymbolRequest else { return }
             coordinator?.insert(request.kind, in: tv)
         }
         context.coordinator.commandObserver = NotificationCenter.default.addObserver(forName: .editorCommand, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] note in
