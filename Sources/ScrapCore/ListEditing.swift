@@ -122,6 +122,30 @@ public enum ListEditing {
                         selection: NSRange(location: caret + (insertion as NSString).length, length: 0))
     }
 
+    // MARK: Backspace
+
+    /// Backspace right after a bullet or task marker removes the marker (a task becomes a plain bullet first), as a
+    /// single step: the marker is drawn as one icon, so deleting it character by character would be invisible.
+    public static func backspace(in text: String, selection: NSRange) -> TextEdit? {
+        guard selection.length == 0 else { return nil }
+        let ns = text as NSString
+        let line = line(at: selection.location, in: ns)
+        guard let m = line.match, selection.location == line.range.location + m.range.length else { return nil }
+        let lineNS = line.text as NSString
+        let bullet = lineNS.substring(with: m.range(at: 2))
+        let box = m.range(at: 4)
+        let base = line.range.location
+        let range: NSRange
+        if box.location != NSNotFound {
+            range = NSRange(location: base + box.location, length: box.length)             // task -> plain bullet
+        } else if "-*+".contains(bullet) {
+            range = NSRange(location: base + m.range(at: 2).location, length: m.range.length - m.range(at: 1).length) // bullet -> text
+        } else {
+            return nil                                                                    // numbers delete normally
+        }
+        return TextEdit(range: range, replacement: "", selection: NSRange(location: selection.location - range.length, length: 0))
+    }
+
     // MARK: Tab and Shift-Tab
 
     /// Indent or outdent the selected list lines. nil when the selection isn't made of list lines.

@@ -42,6 +42,8 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Go to pad 1–9 | `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
 | Format | `⌘B` bold, `⌘I` italic, `⇧⌘X` strikethrough, `⌘E` code, `⌃-` divider (all toggle; they wrap the selection or the word at the cursor) |
+| Tasks | `- [ ]` items are drawn as clickable circles: click to check, and done tasks dim and strike through. Bullets are drawn as dots. The file stays plain Markdown |
+| Links | URLs you paste or type, and `[text](url)` links, are underlined in the accent colour; `⌘`-click opens them |
 | Lists and tasks | `Return` continues a list (an empty item ends it) and keeps indentation, `Tab` / `⇧Tab` indent, `⌃8` makes or unmakes a task, `⌘Return` checks or unchecks it |
 | Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
