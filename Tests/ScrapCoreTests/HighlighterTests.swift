@@ -17,7 +17,7 @@ final class HighlighterTests: XCTestCase {
 
     func testBulletAndQuote() {
         let t = tokens("- item\n> quoted")
-        XCTAssertTrue(t.contains { $0 == ("-", .number) })
+        XCTAssertTrue(t.contains { $0 == ("- ", .number) })
         XCTAssertTrue(t.contains { $0 == ("> quoted", .comment) })
     }
 

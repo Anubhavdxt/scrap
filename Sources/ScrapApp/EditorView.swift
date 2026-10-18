@@ -48,9 +48,31 @@ struct EditorView: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSTextView.scrollableTextView()
-        let tv = scroll.documentView as! NSTextView
+        // TextKit 1 stack with our layout manager, which draws the task icons and bullets.
+        let storage = NSTextStorage()
+        let layout = ScrapLayoutManager()
+        storage.addLayoutManager(layout)
+        let container = NSTextContainer(size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
+        container.widthTracksTextView = true
+        layout.addTextContainer(container)
+        let tv = ScrapTextView(frame: .zero, textContainer: container)
+        tv.minSize = .zero
+        tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        tv.isVerticallyResizable = true
+        tv.isHorizontallyResizable = false
+        tv.autoresizingMask = [.width]
+        let scroll = NSScrollView()
+        scroll.documentView = tv
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.borderType = .noBorder
+        scroll.drawsBackground = false
         tv.delegate = context.coordinator
+        tv.onToggleTask = { [weak tv, weak coordinator = context.coordinator] index in
+            guard let tv else { return }
+            coordinator?.toggleTask(at: index, in: tv)
+        }
+        tv.isAutomaticLinkDetectionEnabled = false
         tv.isRichText = false
         tv.allowsUndo = true
         tv.isAutomaticQuoteSubstitutionEnabled = false
@@ -115,12 +137,22 @@ struct EditorView: NSViewRepresentable {
                                                  continueLists: d.object(forKey: "autoList") as? Bool ?? true,
                                                  keepIndent: d.object(forKey: "keepIndent") as? Bool ?? true)
                 return apply(edit, to: textView)
+            case #selector(NSResponder.deleteBackward(_:)):
+                return apply(ListEditing.backspace(in: text, selection: selection), to: textView)
             case #selector(NSResponder.insertTab(_:)):
                 return apply(ListEditing.indent(in: text, selection: selection, outdent: false), to: textView)
             case #selector(NSResponder.insertBacktab(_:)):
                 return apply(ListEditing.indent(in: text, selection: selection, outdent: true), to: textView)
             default:
                 return false
+            }
+        }
+
+        /// Clicking a task icon checks or unchecks it without moving the caret.
+        func toggleTask(at index: Int, in tv: NSTextView) {
+            let saved = tv.selectedRange()
+            if apply(ListEditing.toggleChecklist(in: tv.string, selection: NSRange(location: index, length: 0)), to: tv) {
+                tv.setSelectedRange(saved)
             }
         }
 
@@ -182,25 +214,70 @@ struct EditorView: NSViewRepresentable {
         func highlight(_ tv: NSTextView) {
             guard let storage = tv.textStorage else { return }
             let theme = parent.theme
+            let accent = NSColor(hex: theme.accent)
+            let baseFont = self.baseFont
+            let cell = baseFont.maximumAdvancement.width
+            let iconAdvance = (baseFont.pointSize * 1.4).rounded()
+            if let lm = tv.layoutManager as? ScrapLayoutManager {
+                lm.accent = accent
+                lm.textColor = NSColor(hex: theme.color(.base))
+                lm.iconSize = (baseFont.pointSize * 0.95).rounded()
+                lm.iconAdvance = iconAdvance
+            }
             let base = [NSAttributedString.Key.font: baseFont, .foregroundColor: NSColor(hex: theme.color(.base))]
             tv.typingAttributes = base
             let full = NSRange(location: 0, length: storage.length)
+            let ns = storage.string as NSString
             storage.beginEditing()
             storage.setAttributes(base, range: full)
             if storage.length <= EditorView.maxHighlightLength {
                 for span in MarkdownHighlighter.spans(in: storage.string) {
                     var attrs: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor(hex: theme.color(span.token))]
-                    let italic = span.italic || theme.italic.contains(span.token)
+                    let italic = span.italic || (theme.italic.contains(span.token) && !span.strike)
                     if span.bold || italic {
                         var traits: NSFontDescriptor.SymbolicTraits = []
                         if span.bold { traits.insert(.bold) }
                         if italic { traits.insert(.italic) }
                         attrs[.font] = NSFont(descriptor: baseFont.fontDescriptor.withSymbolicTraits(traits), size: baseFont.pointSize) ?? baseFont
                     }
+                    if span.strike {
+                        // A finished task: struck through and dimmed, not themed like a comment.
+                        attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+                        attrs[.foregroundColor] = NSColor(hex: theme.color(.base)).withAlphaComponent(0.5)
+                    }
+                    if let url = span.url {
+                        attrs[.foregroundColor] = accent
+                        attrs[.underlineStyle] = NSUnderlineStyle.single.rawValue
+                        attrs[.scrapURL] = url
+                    }
                     storage.addAttributes(attrs, range: span.range)
+                    if let marker = span.marker { style(marker, over: span.range, in: storage, ns: ns, cell: cell, iconAdvance: iconAdvance) }
                 }
             }
             storage.endEditing()
+        }
+
+        /// Collapses a bullet or task marker to an icon-sized gap (drawn by `ScrapLayoutManager`) and gives wrapped
+        /// lines of the item a hanging indent, so continuation lines align with the item's text.
+        private func style(_ marker: ListMarker, over range: NSRange, in storage: NSTextStorage, ns: NSString, cell: CGFloat, iconAdvance: CGFloat) {
+            let indent = CGFloat(marker.indentColumns) * cell
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.firstLineHeadIndent = 0
+            switch marker.kind {
+            case .number:
+                paragraph.headIndent = indent + CGFloat(marker.columns) * cell
+            case .bullet, .taskOpen, .taskDone:
+                paragraph.headIndent = indent + iconAdvance
+                // Keep the characters (the file stays plain Markdown) but make them zero-width and invisible.
+                storage.addAttribute(.foregroundColor, value: NSColor.clear, range: range)
+                for i in range.location..<range.upperBound {
+                    let last = i == range.upperBound - 1
+                    storage.addAttribute(.kern, value: last ? iconAdvance - cell : -cell, range: NSRange(location: i, length: 1))
+                }
+                let kind: MarkerKind = marker.kind == .bullet ? .bullet : (marker.kind == .taskOpen ? .taskOpen : .taskDone)
+                storage.addAttribute(.scrapMarker, value: kind.rawValue, range: range)
+            }
+            storage.addAttribute(.paragraphStyle, value: paragraph, range: ns.paragraphRange(for: range))
         }
     }
 }
