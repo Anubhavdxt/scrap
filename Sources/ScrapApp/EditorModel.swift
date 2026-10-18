@@ -122,6 +122,52 @@ final class EditorModel: ObservableObject {
         }
     }
 
+    /// What a `scrap://` link did.
+    enum LinkOutcome: Equatable {
+        case opened(pad: Int?)
+        case added(pad: Int)
+        case ignored
+    }
+
+    /// Acts on a `scrap://` link (see `ScrapURL`). Links can come from anywhere, so they can open a pad or add text and
+    /// nothing else; adding says so in the footer and can be turned off in Settings.
+    @discardableResult
+    func handle(_ url: URL) -> LinkOutcome {
+        switch ScrapURL.parse(url) {
+        case .failure(let problem):
+            if problem != .notScrap { show(notice: "Ignored a scrap:// link: \(problem.errorDescription ?? "not understood")") }
+            return .ignored
+        case .success(.open(let number)):
+            if let number {
+                guard store.pad(number) != nil else {
+                    show(notice: "Ignored a link: there is no pad \(number)")
+                    return .ignored
+                }
+                open(number: number)
+            }
+            return .opened(pad: number)
+        case .success(.add(let text, let number)):
+            guard UserDefaults.standard.object(forKey: "allowURLAdd") as? Bool ?? true else {
+                show(notice: "A link tried to add text. Turn that on in Settings > General to allow it.")
+                return .ignored
+            }
+            flush() // whatever is being typed is saved first, so the addition goes after it
+            do {
+                let target = try store.add(text, to: number)
+                refreshPads()
+                if target.number == pad.number, let content = try? store.read(pad) {
+                    lastSaved = content
+                    self.text = content
+                }
+                show(notice: "Added to pad \(target.number) from a link")
+                return .added(pad: target.number)
+            } catch {
+                show(notice: "Ignored a link: \(error.localizedDescription)")
+                return .ignored
+            }
+        }
+    }
+
     /// Closes the say-hi screen for good. A nil entry means the user skipped.
     func finishSayHi(_ entry: HelloEntry?) {
         if let entry {

@@ -33,6 +33,7 @@ struct SettingsView: View {
     @AppStorage("keepIndent") private var keepIndent = true
     @AppStorage("tintMenuBar") private var tintMenuBar = true
     @AppStorage("tintFooter") private var tintFooter = true
+    @AppStorage("allowURLAdd") private var allowURLAdd = true
     @AppStorage("escCloses") private var escCloses = true
     @AppStorage("iconMode") private var iconMode = IconMode.menuBar
     @AppStorage("detached") private var detached = false
@@ -198,6 +199,10 @@ struct SettingsView: View {
                 }
                 .toggleStyle(.checkbox)
             }
+            row("Links") {
+                Toggle("Let scrap:// links add text to my pads", isOn: $allowURLAdd).toggleStyle(.checkbox)
+            }
+            note("Links can open a pad or add text, never read one. An addition is announced in the footer.")
             row("Startup") {
                 Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
                     .toggleStyle(.checkbox)

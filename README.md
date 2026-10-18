@@ -63,6 +63,21 @@ Optional `~/.config/scrap/config.json`, shared by the app and the CLI:
 
 `scrap add` puts text in the last empty pad, or appends to the last pad if none is empty. Use `-p N` to pick one.
 
+## Links
+
+`scrap://` links open a pad or add text, so other tools can talk to scrap:
+
+    scrap://open?pad=3
+    scrap://add?text=buy%20milk&pad=3      (pad is optional: it goes where `scrap add` would put it)
+
+- Percent-encode the text (a space is `%20`, a newline `%0A`); a `+` is a plain plus. The limit is 20 KB.
+- A link can never read a pad back, and an addition is announced in the footer. Turn it off in Settings > General.
+- A browser bookmarklet that sends the page to scrap:
+
+      javascript:location.href='scrap://add?text='+encodeURIComponent(document.title+'\n'+location.href)
+
+- In Shortcuts, use *Open URL* with a `scrap://` link, or *Run Shell Script* with `scrap add "…"`.
+
 ## Development
 
     swift build

@@ -123,6 +123,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// `scrap://` links. A link may open a pad (and bring scrap up); adding text stays quiet and just updates the pad.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls.prefix(5) {   // a page firing a burst of links does not get to do more than a few
+            if case .opened = EditorModel.shared.handle(url) { show() }
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
     // MARK: Settings that change how scrap shows up
