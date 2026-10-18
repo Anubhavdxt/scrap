@@ -9,6 +9,8 @@ struct SymbolPicker: View {
     static let size = CGSize(width: 316, height: 360)
 
     @State private var hovered: String?
+    /// Your own smart bullets, listed after the built-in ones.
+    @AppStorage("customBullets") private var customBullets = ""
 
     /// Groups of wide items (a pair of bullets, a divider) get bigger cells than single characters.
     private func columns(for group: SymbolGroup) -> [GridItem] {
@@ -19,7 +21,7 @@ struct SymbolPicker: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(SymbolCatalog.groups) { group in
+                ForEach(SymbolCatalog.groups(custom: CustomBullets.decode(customBullets))) { group in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(group.name.uppercased())
                             .font(.system(size: 10, weight: .semibold))

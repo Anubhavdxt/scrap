@@ -27,6 +27,8 @@ struct EditorView: NSViewRepresentable {
     var selectionColor: NSColor? = nil
     /// Receives the selection so the footer can count the selected text.
     var selection: Binding<NSRange>? = nil
+    /// The user's own smart bullets, as stored in Settings (JSON).
+    var customBullets = ""
 
     private static let maxHighlightLength = 300_000
 
@@ -205,7 +207,7 @@ struct EditorView: NSViewRepresentable {
         }
 
         func apply(_ theme: Theme, to tv: NSTextView, force: Bool) {
-            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)|\(parent.rendered)|\(parent.selectionColor?.description ?? "")"
+            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)|\(parent.rendered)|\(parent.selectionColor?.description ?? "")|\(parent.customBullets)"
             guard force || appliedTheme != key else { return }
             appliedTheme = key
             setWrap(parent.wrap, in: tv)
@@ -237,6 +239,7 @@ struct EditorView: NSViewRepresentable {
 
         private var spans: [Span] = []
         private var spansText: String?
+        private var spansBullets: String?
         private var revealed = NSRange(location: 0, length: 0)
 
         private var style: MarkdownStyle {
@@ -257,6 +260,12 @@ struct EditorView: NSViewRepresentable {
             }
             let full = NSRange(location: 0, length: storage.length)
             tv.typingAttributes = style.baseAttributes
+            // The user's own smart bullets decide what counts as a bullet, so set them before reading the text.
+            if spansBullets != parent.customBullets {
+                SmartBullets.custom = CustomBullets.decode(parent.customBullets)
+                spansBullets = parent.customBullets
+                spansText = nil
+            }
             if storage.length <= EditorView.maxHighlightLength {
                 if spansText != storage.string {
                     spans = MarkdownHighlighter.spans(in: storage.string)

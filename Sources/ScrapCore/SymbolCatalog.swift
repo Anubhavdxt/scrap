@@ -33,11 +33,17 @@ public enum SymbolCatalog {
         }
     }
 
-    public static let groups: [SymbolGroup] = [
+    /// The groups with the current custom bullets (`SmartBullets.custom`).
+    public static var groups: [SymbolGroup] { groups(custom: SmartBullets.custom) }
+
+    /// The groups with `custom` as your own smart bullets, after the built-in ones.
+    public static func groups(custom: [SmartBullets.Pair]) -> [SymbolGroup] {
+        let pairs = SmartBullets.builtIn + custom
+        return [
         SymbolGroup(name: "Smart Bullets", items:
             [SymbolItem(kind: .markdownTask, label: "[ ]", title: "Markdown task: - [ ]")]
-            + SmartBullets.pairs.indices.map { i in
-                let pair = SmartBullets.pairs[i]
+            + pairs.indices.map { i in
+                let pair = pairs[i]
                 return SymbolItem(kind: .smartBullet(i), label: pair.open + pair.done, title: "Smart bullet \(pair.open) ↔ \(pair.done) (click it to flip)")
             }),
         SymbolGroup(name: "Dividers", items: [
@@ -50,5 +56,6 @@ public enum SymbolCatalog {
         SymbolGroup(name: "Numbers", items: characters("⓪①②③④⑤⑥⑦⑧⑨⓿❶❷❸❹❺❻❼❽❾") { "Number \($0)" }),
         SymbolGroup(name: "Technical", items: characters("⌘⌥⇧⌃⎋⌫⌦⏎↩↵⇥⇤⏏⌧⎈⌤⏻⌨") { "Key symbol \($0)" }),
         SymbolGroup(name: "Symbols", items: characters("¶§†‡‰°©®™∞≈≠≤≥±÷×♠♣♥♦☀☁♪☎✉✂⚑⚠") { "Symbol \($0)" }),
-    ]
+        ]
+    }
 }

@@ -1010,3 +1010,99 @@ final class CodeBlockLookTests: XCTestCase {
         XCTAssertEqual((attrs(tv, "```\nplain")[.foregroundColor] as? NSColor)?.alphaComponent, 0, "still hidden")
     }
 }
+
+/// Custom smart bullets in the real editor.
+@MainActor
+final class CustomBulletEditorTests: XCTestCase {
+    private final class Box { var text: String; init(_ t: String) { text = t } }
+
+    override func tearDown() { SmartBullets.custom = [] }
+
+    private func editor(_ text: String, bullets: [SmartBullets.Pair]) -> (NSWindow, ScrapTextView, Box) {
+        let box = Box(text)
+        let theme = Themes.all.first { $0.id == "cobalt2-dark" }!
+        let binding = Binding(get: { box.text }, set: { box.text = $0 })
+        let view = NSHostingView(rootView: EditorView(text: binding, theme: theme, fontSize: 14, fontFamily: "", wrap: true,
+                                                      customBullets: CustomBullets.encode(bullets)).frame(width: 520, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        func find(_ v: NSView) -> ScrapTextView? { (v as? ScrapTextView) ?? v.subviews.lazy.compactMap(find).first }
+        let tv = find(view)!
+        tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+        return (window, tv, box)
+    }
+
+    private func centre(_ tv: ScrapTextView, at index: Int, length: Int = 1) -> NSPoint {
+        let lm = tv.layoutManager!
+        let r = lm.boundingRect(forGlyphRange: lm.glyphRange(forCharacterRange: NSRange(location: index, length: length), actualCharacterRange: nil), in: tv.textContainer!)
+        return NSPoint(x: r.midX + tv.textContainerOrigin.x, y: r.midY + tv.textContainerOrigin.y)
+    }
+
+    private let pair = SmartBullets.Pair(open: "◇", done: "◆")
+
+    func testACustomBulletIsStyledStruckAndClickable() {
+        let (window, tv, box) = editor("◇ idea\n◆ shipped\nplain", bullets: [pair])
+        let storage = tv.textStorage!
+        XCTAssertNotNil(storage.attribute(.scrapSmartBullet, at: 0, effectiveRange: nil), "the custom glyph is a click target")
+        let done = (tv.string as NSString).range(of: "shipped")
+        XCTAssertNotNil(storage.attribute(.strikethroughStyle, at: done.location, effectiveRange: nil), "finished items are struck through")
+        let event = NSEvent.mouseEvent(with: .leftMouseDown, location: tv.convert(centre(tv, at: 0), to: nil), modifierFlags: [], timestamp: 0,
+                                       windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        tv.mouseDown(with: event)
+        XCTAssertEqual(box.text, "◆ idea\n◆ shipped\nplain", "a click flips it")
+    }
+
+    func testWithoutTheCustomPairTheSameTextIsPlainText() {
+        let (_, tv, _) = editor("◇ idea\n◆ shipped", bullets: [])
+        XCTAssertNil(tv.textStorage!.attribute(.scrapSmartBullet, at: 0, effectiveRange: nil), "an unknown symbol is just text")
+        XCTAssertNil(tv.textStorage!.attribute(.strikethroughStyle, at: 8, effectiveRange: nil))
+    }
+
+    func testBuiltInBulletsKeepWorkingAlongsideCustomOnes() {
+        let (_, tv, _) = editor("○ built in\n◇ custom", bullets: [pair])
+        XCTAssertNotNil(tv.textStorage!.attribute(.scrapSmartBullet, at: 0, effectiveRange: nil))
+        let custom = (tv.string as NSString).range(of: "◇")
+        XCTAssertNotNil(tv.textStorage!.attribute(.scrapSmartBullet, at: custom.location, effectiveRange: nil))
+    }
+
+    func testChoosingTheCustomBulletFromThePickerAndItsListing() {
+        let (_, tv, box) = editor("buy milk", bullets: [pair])
+        let coordinator = tv.delegate as! EditorView.Coordinator
+        tv.setSelectedRange(NSRange(location: 2, length: 0))
+        coordinator.insert(.smartBullet(8), in: tv)
+        XCTAssertEqual(box.text, "◇ buy milk")
+        let labels = SymbolCatalog.groups(custom: [pair])[0].items.map(\.label)
+        XCTAssertEqual(labels.last, "◇◆")
+    }
+}
+
+/// Settings > Appearance with a couple of custom bullets, as a picture (opt-in).
+@MainActor
+final class SettingsAppearanceSnapshotTests: XCTestCase {
+    func testRender() throws {
+        guard let dir = ProcessInfo.processInfo.environment["SCRAP_SNAPSHOT_DIR"] else { throw XCTSkip("set SCRAP_SNAPSHOT_DIR to write snapshots") }
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-setsnap-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("pads"), withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
+        UserDefaults.standard.set("Appearance", forKey: "settingsTab")
+        UserDefaults.standard.set(CustomBullets.encode([.init(open: "◇", done: "◆"), .init(open: "🟡", done: "🟢")]), forKey: "customBullets")
+        defer { ["settingsTab", "customBullets"].forEach { UserDefaults.standard.removeObject(forKey: $0) } }
+        // The bullets editor on its own (in the real pane it sits below the theme swatches and the text options).
+        let size = CGSize(width: SettingsView.size.width - 40, height: 250)
+        let view = NSHostingView(rootView: CustomBulletsEditor().padding(20).frame(width: size.width + 40, height: size.height, alignment: .topLeading).background(Color(red: 0.1, green: 0.2, blue: 0.29)).foregroundStyle(.white))
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: CGSize(width: size.width + 40, height: size.height)), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        window.appearance = NSAppearance(named: .darkAqua)
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: rep)
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-bullets.png"))
+    }
+}

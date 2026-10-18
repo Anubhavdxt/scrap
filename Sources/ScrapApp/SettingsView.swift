@@ -274,6 +274,8 @@ struct SettingsView: View {
             }
             note("The ** # ` and [ ] around styled text. Hidden marks appear on the line you're editing.")
             note("⌘+ and ⌘− change the size, ⌘0 resets it. The window grows with the font because its size is in columns and rows.")
+            Divider().padding(.vertical, 4)
+            CustomBulletsEditor()
         }
     }
 
