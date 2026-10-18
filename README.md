@@ -42,11 +42,13 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Go to pad 1–9 | `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
 | Format | `⌘B` bold, `⌘I` italic, `⇧⌘X` strikethrough, `⌘E` code, `⌃-` divider (all toggle; they wrap the selection or the word at the cursor) |
+| Rendered or raw | The eye button in the footer (or `⌥⌘R`, View menu) switches between the rendered view and the raw file: plain monospaced text with every marker visible. Rendered text uses the proportional system font by default (Settings > Appearance > Font); code stays monospaced |
 | Styling | Markdown is styled as you type: real bold, italic and ~~strikethrough~~, sized headings, `code` chips, code-block panels and quote bars. The `**`, `#`, backticks and `[ ]` marks hide except on the line you're editing (Settings: hide, dim or show), and Colour highlights can be turned off |
 | Tasks | `- [ ]` items are drawn as clickable circles: click to check, and done tasks dim and strike through. Bullets are drawn as dots. The file stays plain Markdown |
 | Links | URLs you paste or type, and `[text](url)` links, are underlined in the accent colour; `⌘`-click opens them |
 | Lists and tasks | `Return` continues a list (an empty item ends it) and keeps indentation, `Tab` / `⇧Tab` indent, `⌃8` makes or unmakes a task, `⌘Return` checks or unchecks it |
 | Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
+| Window | The pin in the top bar turns the popover into a normal resizable window (and back); Settings can show scrap in the menu bar, the Dock, or both, and keep the window above other windows |
 | Footer | the pad's line, word and character counts, when it was last saved, and buttons for tasks, formatting and sharing |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
 

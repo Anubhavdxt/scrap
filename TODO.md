@@ -17,16 +17,18 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] Logo: app icon, menu bar icon, README header, social preview (`make icons`)
 
 ## Later / ideas
+- [x] Rendered vs raw toggle (eye button, ⌥⌘R); proportional prose font option with monospaced code; selection in the pad's colour with selection counts
+- [ ] Smart bullets (○ ● □ ■ ▷ ▶ ☆ ★ …) as clickable characters, and the `*` symbol picker (bullets, dividers, checkmarks, arrows, numbers, technical)
 - [x] Formatting commands (⌘B ⌘I ⇧⌘X ⌘E ⌃- ⌃8), keep indentation on Return
 - [x] Clickable task icons and bullet dots, link styling (pasted URLs too) with ⌘-click to open
 - [x] Live Markdown rendering: real bold/italic/strikethrough, sized headings, code panels, dimmed or hidden markers, colour highlights for bold and links (toggle)
 - [x] Decided against bundling highlight.js (measured: +73 KB, +6 MB RAM when used, slower than the Swift lexers, vendored JS to maintain). Improve the Swift lexers instead if any language's colours look worse than the portfolio
 - [x] From Tot's settings: menu bar icon tinted with the pad's colour, "Esc closes window" toggle, footer with task/format/share buttons and a "saved just now" indicator
-- [ ] More from Tot's settings: floating (always on top) window, hotkey follows the mouse, "show pad number", custom bullets, vibrant background, alternate app icons
+- [ ] More from Tot's settings: hotkey follows the mouse, "show pad number", custom bullets, vibrant background, alternate app icons
 - [x] Font size (⌘+ ⌘− ⌘0), font family picker, line wrapping toggle
 - [x] List helpers: Return continues lists, Tab indents, ⌘Return toggles checkboxes
-- [ ] Detach/pin the popover into a normal window
-- [ ] Icon visibility: menu bar / Dock / both (Dock-only needs the window mode above)
+- [x] Detach/pin the popover into a normal window (pin button, remembers size and place, optional always-on-top)
+- [x] Icon visibility: menu bar / Dock / both (Dock-only always uses the window)
 - [x] Configurable hotkey and pad folder (settings UI + shared config file for the CLI)
 - [x] Optional first-launch "say hi" screen (name, email, suggestions); saved locally in `~/Library/Application Support/scrap/hello.json`, nothing is sent
 - [ ] Backend for say-hi entries (e.g. Supabase table + insert-only policy); must ask for consent again before uploading anything already saved, then flip `sentToServer`

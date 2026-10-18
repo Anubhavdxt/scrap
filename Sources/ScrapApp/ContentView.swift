@@ -25,11 +25,13 @@ struct ContentView: View {
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
-    @AppStorage("fontFamily") private var fontFamily = ""
+    @AppStorage("fontFamily") private var fontFamily = EditorFont.systemFamily
+    @AppStorage("rendered") private var rendered = true
     @AppStorage("wrapLines") private var wrapLines = true
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("markers") private var markers = "hide"
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scrapWindowed) private var windowed
 
     private var theme: Theme { resolveTheme(family: family, appearance: appearance, colorScheme: colorScheme) }
 
@@ -39,12 +41,15 @@ struct ContentView: View {
                 .background(Color(nsColor: NSColor(hex: theme.background)))
             Divider()
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
-                       colorHighlights: colorHighlights, markers: markers)
+                       colorHighlights: colorHighlights, markers: markers, rendered: rendered,
+                       selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection)
             Divider()
             StatusLine(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // In a window the content runs under the (empty, transparent) title strip, so the top bar is the only bar.
+        .ignoresSafeArea(.container, edges: windowed ? .top : [])
         .background { shortcuts }
         .overlay { overlays }
         .onChange(of: model.showPalette) { _, open in if !open { refocus() } }
@@ -111,16 +116,27 @@ struct ContentView: View {
 
 struct TopBar: View {
     @ObservedObject var model: EditorModel
+    @Environment(\.scrapWindowed) private var windowed
+    @AppStorage("iconMode") private var iconMode = IconMode.menuBar
+
+    private var canAttach: Bool { iconMode != .dock }
 
     var body: some View {
         ZStack {
             PadDots(model: model)
-            HStack {
+            HStack(spacing: 12) {
                 Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
                     Image(systemName: "xmark.circle")
                 }
-                .help("Close")
+                .help(windowed ? "Hide the window" : "Close")
                 Spacer()
+                if canAttach {
+                    // Detach the popover into a window, or attach the window back to the menu bar icon.
+                    Button { NotificationCenter.default.post(name: .toggleDetach, object: nil) } label: {
+                        Image(systemName: windowed ? "pin.fill" : "pin")
+                    }
+                    .help(windowed ? "Attach to the menu bar icon" : "Keep as a window")
+                }
                 Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
                     Image(systemName: "gearshape")
                 }
@@ -133,7 +149,17 @@ struct TopBar: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 34)
+        .background { if windowed { WindowDragHandle() } }
     }
+}
+
+/// Lets the empty parts of the top bar drag the window (the window has no title bar of its own to grab).
+struct WindowDragHandle: NSViewRepresentable {
+    final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool { true }
+    }
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ view: NSView, context: Context) {}
 }
 
 struct PadDots: View {
@@ -163,11 +189,16 @@ struct PadDots: View {
 struct StatusLine: View {
     @ObservedObject var model: EditorModel
 
+    private var selectedText: String? {
+        let r = model.selection
+        let text = model.text as NSString
+        guard r.length > 0, r.upperBound <= text.length else { return nil }
+        return text.substring(with: r)
+    }
+
     private var stats: String {
-        let text = model.text
-        let lines = text.isEmpty ? 0 : text.components(separatedBy: .newlines).count
-        let words = text.split(whereSeparator: \.isWhitespace).count
-        return "\(lines) \(lines == 1 ? "line" : "lines") · \(words) \(words == 1 ? "word" : "words") · \(text.count) characters"
+        if let selected = selectedText { return TextStats.summary(selected, selection: true) }
+        return TextStats.summary(model.text)
     }
 
     /// When the current pad's file was last written, if it has been.
@@ -177,8 +208,13 @@ struct StatusLine: View {
     }
 
     var body: some View {
+        let color = PadColors.color(for: model.pad.number)
         HStack(spacing: 8) {
-            Circle().fill(PadColors.color(for: model.pad.number)).frame(width: 8, height: 8)
+            // The dot is solid for the pad, and a pale ring while text is selected (the counts are then the selection's).
+            Circle()
+                .fill(selectedText == nil ? color : color.opacity(0.25))
+                .overlay(Circle().stroke(color, lineWidth: selectedText == nil ? 0 : 1.5))
+                .frame(width: 8, height: 8)
             ViewThatFits(in: .horizontal) {
                 message(showSaved: true)
                 message(showSaved: false)
@@ -201,6 +237,7 @@ struct StatusLine: View {
             HStack(spacing: 8) {
                 Text(stats).lineLimit(1).fixedSize()
                 if showSaved, let savedAt {
+                    Rectangle().fill(.secondary.opacity(0.35)).frame(width: 1, height: 12)
                     // Re-evaluated every 20 seconds so "just now" ages into "1 min ago".
                     TimelineView(.periodic(from: .now, by: 20)) { context in
                         Text("Saved \(RelativeTime.text(for: savedAt, now: context.date))").lineLimit(1).fixedSize()
@@ -214,11 +251,14 @@ struct StatusLine: View {
 /// Format menu, task and share buttons at the right of the footer (the same commands as the keyboard shortcuts).
 struct FooterButtons: View {
     @ObservedObject var model: EditorModel
+    @AppStorage("rendered") private var rendered = true
 
     var body: some View {
         HStack(spacing: 10) {
             Button { run(.task) } label: { Image(systemName: "checklist") }
                 .help("Make this line a task (⌃8)")
+            Button { rendered.toggle() } label: { Image(systemName: rendered ? "eye" : "eye.slash") }
+                .help(rendered ? "Show raw Markdown (⌥⌘R)" : "Show rendered text (⌥⌘R)")
             Menu {
                 Button("Bold  ⌘B") { run(.bold) }
                 Button("Italic  ⌘I") { run(.italic) }
@@ -248,12 +288,16 @@ struct FooterButtons: View {
     }
 }
 
-/// Lets the settings popover attach to the gear button.
+/// Lets the settings popover attach to the gear button. The view registers itself when it joins a window, so the
+/// anchor is always the gear of whichever editor (popover or window) is on screen.
 struct GearAnchor: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { SettingsAnchor.view = view }
-        return view
+    final class AnchorView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil { SettingsAnchor.view = self }
+        }
     }
+
+    func makeNSView(context: Context) -> NSView { AnchorView() }
     func updateNSView(_ view: NSView, context: Context) {}
 }

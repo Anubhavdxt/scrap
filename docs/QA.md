@@ -25,11 +25,23 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Right-click the icon: Settings… and Quit work
 - [ ] Opens at the size set in Settings > Window (columns × rows) and resizes live when it changes
 
+## Detached window, Dock icon
+- [ ] The pin turns the popover into a window of the same size; the pin shows filled and attaches it back; position and size are remembered across hides and relaunches
+- [ ] The top bar's ×, ⌘W and (with the setting) Esc hide the window without losing text; the hotkey, the menu bar icon and the Dock icon bring it back
+- [ ] The window has no macOS red/yellow/green buttons and no extra title strip, only the top bar with its × (like Tot); dragging the empty part of the top bar moves it; edges resize it, with a sensible minimum; it has rounded corners and a shadow
+- [ ] Settings > General: "Show in" Menu bar / Dock / Both. Dock-only: no menu bar icon, the window opens at launch, no pin, "Open as a window" is on and greyed out. Both: Dock icon and menu bar icon; the menu bar icon opens the popover or window per the pin. Menu bar: no Dock icon
+- [ ] With a Dock icon the real menu bar shows scrap's menus (Edit, Format, View) and ⌘Q quits; clicking the Dock icon shows the editor
+- [ ] "Keep the window above other windows" floats it; switching between popover and window while open keeps the text and caret
+- [ ] The gear opens settings attached to the window, and clicking in the editor closes only settings
+
 ## Editor
 - [ ] ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and ⇧⌘Z work
 - [ ] Markdown is highlighted (headings, bold, italic, code, links, quotes, lists, fenced code) in a few themes, dark and light
 - [ ] Lists: Return continues, an empty item ends the list, Return mid-list renumbers, Tab/⇧Tab indent, ⌘Return toggles a checkbox, ⌘Z undoes each in one step
 - [ ] Format menu and shortcuts: ⌘B, ⌘I, ⇧⌘X, ⌘E wrap the selection or the word at the cursor and toggle off again; ⌃- inserts a divider; ⌃8 makes or unmakes a task; ⌘Return checks it; each is one undo step
+- [ ] The eye button, ⌥⌘R and View > Show Raw Markdown switch to the raw file (monospaced, every marker visible, no icons or panels) and back; the choice is remembered; typing in raw mode works
+- [ ] Font: prose is the proportional system font by default and code, code blocks and raw text stay monospaced; Settings > Appearance > Font offers System (proportional), System Mono and installed monospaced families; the window size in columns × rows still feels right with each
+- [ ] Selecting text highlights it in the pad's colour; the footer dot turns into a pale ring and the counts say "selected"; a thin line separates the counts from the saved time
 - [ ] Live rendering: headings are larger, **bold**/*italic*/~~strike~~ look bold/italic/struck, `code` has a chip, fenced blocks have a panel, quotes a bar; the syntax marks disappear away from the caret and return on the caret's line; Settings > Appearance: Markdown marks (hide/dim/show) and Colour highlights behave; the file text is never altered
 - [ ] Task lists: `- [ ]` shows a ring and `- [x]` a filled check with dimmed struck-through text; clicking the icon toggles it without moving the caret; bullets show as dots; wrapped lines hang under the text; backspace right after a marker removes it
 - [ ] Links: pasted URLs, `www.` addresses and `[text](url)` are underlined in the accent colour; the pointer turns into a hand over a task icon (and over a link while holding ⌘); ⌘-click opens the link
