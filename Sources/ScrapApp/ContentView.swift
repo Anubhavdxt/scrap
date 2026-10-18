@@ -25,7 +25,8 @@ struct ContentView: View {
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
     @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
-    @AppStorage("fontFamily") private var fontFamily = ""
+    @AppStorage("fontFamily") private var fontFamily = EditorFont.systemFamily
+    @AppStorage("rendered") private var rendered = true
     @AppStorage("wrapLines") private var wrapLines = true
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("markers") private var markers = "hide"
@@ -40,7 +41,8 @@ struct ContentView: View {
                 .background(Color(nsColor: NSColor(hex: theme.background)))
             Divider()
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
-                       colorHighlights: colorHighlights, markers: markers)
+                       colorHighlights: colorHighlights, markers: markers, rendered: rendered,
+                       selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection)
             Divider()
             StatusLine(model: model)
                 .background(Color(nsColor: NSColor(hex: theme.background)))
@@ -187,11 +189,16 @@ struct PadDots: View {
 struct StatusLine: View {
     @ObservedObject var model: EditorModel
 
+    private var selectedText: String? {
+        let r = model.selection
+        let text = model.text as NSString
+        guard r.length > 0, r.upperBound <= text.length else { return nil }
+        return text.substring(with: r)
+    }
+
     private var stats: String {
-        let text = model.text
-        let lines = text.isEmpty ? 0 : text.components(separatedBy: .newlines).count
-        let words = text.split(whereSeparator: \.isWhitespace).count
-        return "\(lines) \(lines == 1 ? "line" : "lines") · \(words) \(words == 1 ? "word" : "words") · \(text.count) characters"
+        if let selected = selectedText { return TextStats.summary(selected, selection: true) }
+        return TextStats.summary(model.text)
     }
 
     /// When the current pad's file was last written, if it has been.
@@ -201,8 +208,13 @@ struct StatusLine: View {
     }
 
     var body: some View {
+        let color = PadColors.color(for: model.pad.number)
         HStack(spacing: 8) {
-            Circle().fill(PadColors.color(for: model.pad.number)).frame(width: 8, height: 8)
+            // The dot is solid for the pad, and a pale ring while text is selected (the counts are then the selection's).
+            Circle()
+                .fill(selectedText == nil ? color : color.opacity(0.25))
+                .overlay(Circle().stroke(color, lineWidth: selectedText == nil ? 0 : 1.5))
+                .frame(width: 8, height: 8)
             ViewThatFits(in: .horizontal) {
                 message(showSaved: true)
                 message(showSaved: false)
@@ -225,6 +237,7 @@ struct StatusLine: View {
             HStack(spacing: 8) {
                 Text(stats).lineLimit(1).fixedSize()
                 if showSaved, let savedAt {
+                    Rectangle().fill(.secondary.opacity(0.35)).frame(width: 1, height: 12)
                     // Re-evaluated every 20 seconds so "just now" ages into "1 min ago".
                     TimelineView(.periodic(from: .now, by: 20)) { context in
                         Text("Saved \(RelativeTime.text(for: savedAt, now: context.date))").lineLimit(1).fixedSize()
@@ -238,11 +251,14 @@ struct StatusLine: View {
 /// Format menu, task and share buttons at the right of the footer (the same commands as the keyboard shortcuts).
 struct FooterButtons: View {
     @ObservedObject var model: EditorModel
+    @AppStorage("rendered") private var rendered = true
 
     var body: some View {
         HStack(spacing: 10) {
             Button { run(.task) } label: { Image(systemName: "checklist") }
                 .help("Make this line a task (⌃8)")
+            Button { rendered.toggle() } label: { Image(systemName: rendered ? "eye" : "eye.slash") }
+                .help(rendered ? "Show raw Markdown (⌥⌘R)" : "Show rendered text (⌥⌘R)")
             Menu {
                 Button("Bold  ⌘B") { run(.bold) }
                 Button("Italic  ⌘I") { run(.italic) }
