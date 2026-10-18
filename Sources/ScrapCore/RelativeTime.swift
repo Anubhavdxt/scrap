@@ -19,4 +19,10 @@ public enum RelativeTime {
         formatter.setLocalizedDateFormatFromTemplate(calendar.isDate(date, equalTo: now, toGranularity: .year) ? "MMM d" : "MMM d yyyy")
         return formatter.string(from: date)
     }
+
+    /// Sentence-case wording for the footer: "Just now", "5 min ago", "Yesterday".
+    public static func sentence(for date: Date, now: Date = Date()) -> String {
+        let text = text(for: date, now: now)
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
 }

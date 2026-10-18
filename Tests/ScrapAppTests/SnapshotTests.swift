@@ -472,28 +472,48 @@ final class RenderedFontTests: XCTestCase {
         XCTAssertEqual(tv.textStorage!.attributedSubstring(from: bulletMarker).size().width, (14 * 1.4).rounded(), accuracy: 0.6)
     }
 
-    func testRawModeShowsTheFileAsPlainMonospacedText() {
-        let source = "# Title\n**bold** and *it* and `code`\n- [ ] task\n- bullet\n> quote\n```\nblock\n```\nend"
-        let tv = editor(source, rendered: false)
-        XCTAssertEqual(tv.string, source)
-        let storage = tv.textStorage!
-        var base: NSFont?
+    func testRawModeIsTheSameColouredMarkdownWithEveryMarkVisible() {
+        let source = "# Title\n**bold** and *it* and `code` and ~~gone~~\n- [ ] task\n- bullet\n> quote\n[link](https://x.y)\n```swift\nlet a = 1\n```\nend"
+        let raw = editor(source, rendered: false)
+        let rendered = editor(source, rendered: true)
+        XCTAssertEqual(raw.string, source, "same text")
+        let storage = raw.textStorage!
+        let ns = source as NSString
+
+        // Monospaced all through, nothing hidden, no drawn icons.
         storage.enumerateAttributes(in: NSRange(location: 0, length: storage.length), options: []) { attrs, _, _ in
-            let font = attrs[.font] as? NSFont
-            XCTAssertTrue(font?.isFixedPitch == true, "everything is monospaced")
-            if base == nil { base = font }
-            XCTAssertEqual(font?.pointSize, base?.pointSize, "no sized headings")
-            XCTAssertNil(attrs[.kern], "no markers are hidden")
-            XCTAssertNil(attrs[.scrapMarker], "no icons")
-            XCTAssertNil(attrs[.scrapBlock], "no panels")
-            XCTAssertNil(attrs[.scrapQuote])
-            XCTAssertNil(attrs[.underlineStyle])
-            XCTAssertNil(attrs[.strikethroughStyle])
-            XCTAssertNil(attrs[.paragraphStyle])
+            XCTAssertTrue((attrs[.font] as? NSFont)?.isFixedPitch == true, "raw is monospaced")
+            XCTAssertNil(attrs[.kern], "no marks are hidden")
+            XCTAssertNil(attrs[.scrapMarker], "list markers stay text, not icons")
         }
-        var colours = Set<String>()
-        storage.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: storage.length), options: []) { v, _, _ in colours.insert((v as? NSColor)?.description ?? "nil") }
-        XCTAssertEqual(colours.count, 1, "one text colour")
+        func color(_ tv: NSTextView, _ needle: String, offset: Int = 0) -> NSColor? {
+            tv.textStorage?.attribute(.foregroundColor, at: ns.range(of: needle).location + offset, effectiveRange: nil) as? NSColor
+        }
+        // The marks wear their element's colour, so `**bold**` is one gold word and `# Title` one gold line.
+        XCTAssertEqual(color(raw, "**bold**"), color(raw, "bold"), "the ** is coloured like the bold word")
+        XCTAssertEqual(color(raw, "# Title"), color(raw, "Title"), "the # is coloured like the heading")
+        XCTAssertNotEqual(color(raw, "bold"), color(raw, "end"), "and bold is coloured differently from plain text")
+        XCTAssertGreaterThan(color(raw, "**bold**")?.alphaComponent ?? 0, 0.9, "marks aren't dimmed")
+
+        // The elements are all still styled: weight, slant, strike, code chip, link, panel, quote bar.
+        func traits(_ tv: NSTextView, _ needle: String) -> NSFontDescriptor.SymbolicTraits {
+            (tv.textStorage?.attribute(.font, at: ns.range(of: needle).location, effectiveRange: nil) as? NSFont)?.fontDescriptor.symbolicTraits ?? []
+        }
+        XCTAssertTrue(traits(raw, "bold").contains(.bold))
+        XCTAssertTrue(traits(raw, "*it*").contains(.italic))
+        XCTAssertNotNil(storage.attribute(.strikethroughStyle, at: ns.range(of: "gone").location, effectiveRange: nil))
+        XCTAssertNotNil(storage.attribute(.backgroundColor, at: ns.range(of: "`code`").location + 1, effectiveRange: nil), "inline code keeps its chip")
+        XCTAssertNotNil(storage.attribute(.underlineStyle, at: ns.range(of: "link").location, effectiveRange: nil))
+        XCTAssertNotNil(storage.attribute(.scrapBlock, at: ns.range(of: "let a").location, effectiveRange: nil), "the code panel")
+        XCTAssertNotNil(storage.attribute(.scrapQuote, at: ns.range(of: "quote").location, effectiveRange: nil))
+        let headingFont = storage.attribute(.font, at: ns.range(of: "Title").location, effectiveRange: nil) as? NSFont
+        let bodyFont = storage.attribute(.font, at: ns.range(of: "end").location, effectiveRange: nil) as? NSFont
+        XCTAssertGreaterThan(headingFont?.pointSize ?? 0, bodyFont?.pointSize ?? 99, "headings are still larger")
+
+        // Rendered, by contrast, hides those marks and draws the icons.
+        rendered.setSelectedRange(NSRange(location: ns.length, length: 0))
+        XCTAssertNotNil(rendered.textStorage?.attribute(.kern, at: ns.range(of: "**bold**").location, effectiveRange: nil), "rendered hides the **")
+        XCTAssertNotNil(rendered.textStorage?.attribute(.scrapMarker, at: ns.range(of: "- [ ]").location, effectiveRange: nil), "rendered draws the task icon")
     }
 
     func testSwitchingBetweenRawAndRenderedChangesNothingInTheText() {

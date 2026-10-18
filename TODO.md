@@ -17,7 +17,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] Logo: app icon, menu bar icon, README header, social preview (`make icons`)
 
 ## Later / ideas
-- [x] Rendered vs raw toggle (eye button, ⌥⌘R); proportional prose font option with monospaced code; selection in the pad's colour with selection counts
+- [x] Rendered vs raw toggle (eye button, ⌥⌘R; raw = same colours, marks visible); proportional prose font option with monospaced code; selection in the pad's colour with selection counts
 - [ ] Smart bullets (○ ● □ ■ ▷ ▶ ☆ ★ …) as clickable characters, and the `*` symbol picker (bullets, dividers, checkmarks, arrows, numbers, technical)
 - [x] Formatting commands (⌘B ⌘I ⇧⌘X ⌘E ⌃- ⌃8), keep indentation on Return
 - [x] Clickable task icons and bullet dots, link styling (pasted URLs too) with ⌘-click to open
