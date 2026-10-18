@@ -32,6 +32,7 @@ struct SettingsView: View {
     @AppStorage("autoList") private var autoList = true
     @AppStorage("keepIndent") private var keepIndent = true
     @AppStorage("tintMenuBar") private var tintMenuBar = true
+    @AppStorage("tintFooter") private var tintFooter = true
     @AppStorage("escCloses") private var escCloses = true
     @AppStorage("iconMode") private var iconMode = IconMode.menuBar
     @AppStorage("detached") private var detached = false
@@ -191,6 +192,7 @@ struct SettingsView: View {
                     Toggle("Keep the window above other windows", isOn: $windowFloating)
                     Toggle("Escape closes the window", isOn: $escCloses)
                     Toggle("Tint the menu bar icon with the pad colour", isOn: $tintMenuBar)
+                    Toggle("Tint the footer with the pad colour", isOn: $tintFooter)
                 }
                 .toggleStyle(.checkbox)
             }

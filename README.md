@@ -51,6 +51,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Lists and tasks | `Return` continues a list (an empty item ends it) and keeps indentation, `Tab` / `⇧Tab` indent, `⌃8` makes or unmakes a task, `⌘Return` checks or unchecks it |
 | Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
 | Window | The pin in the top bar turns the popover into a normal resizable window (and back); Settings can show scrap in the menu bar, the Dock, or both, and keep the window above other windows |
+| Pad dots | A solid disc with a halo is the open pad, a ring with a dot in the middle has text, a thin faint ring is empty. The footer takes a tint of the open pad's colour (Settings can turn that off) |
 | Footer | the pad's line, word and character counts, when it was last saved, and buttons for tasks, formatting and sharing |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
 

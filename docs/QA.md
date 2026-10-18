@@ -52,6 +52,7 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Very large text (a few hundred KB) stays responsive
 
 ## Pads
+- [ ] Pad dots: the open pad is a solid disc with a soft halo; a pad with text is a ring with a bold dot in the middle; an empty pad is a thin faint ring; hovering a dot grows it a little; the row doesn't shift when switching pads; the footer carries a tint of the open pad's colour in dark and light themes, and Settings > General > "Tint the footer" turns it off
 - [ ] The dots at the top: current is filled, pads with content show a centre dot, hovering shows a preview; clicking switches
 - [ ] ⌘1–⌘9 jump to pads; ⌘K opens the palette (type to filter, ↑↓, Return, Esc)
 - [ ] ⇧⌘⌫ clears the pad after a confirmation (and Esc cancels it)
