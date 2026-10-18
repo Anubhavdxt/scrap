@@ -63,7 +63,6 @@ struct ContentView: View {
                 Button("Pad \(n)") { model.open(number: n) }
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
             }
-            Button("Toggle Checkbox") { NotificationCenter.default.post(name: .toggleChecklist, object: nil) }.keyboardShortcut(.return, modifiers: .command)
             Button("Increase Font Size") { MainMenu.Actions.shared.biggerFont() }.keyboardShortcut("=")
             Button("Clear Pad") { model.showClear = true }.keyboardShortcut(.delete, modifiers: [.command, .shift])
         }

@@ -5,7 +5,14 @@ extension Notification.Name {
     static let focusEditor = Notification.Name("scrap.focusEditor")
     static let closePopover = Notification.Name("scrap.closePopover")
     static let toggleSettings = Notification.Name("scrap.toggleSettings")
-    static let toggleChecklist = Notification.Name("scrap.toggleChecklist")
+    static let editorCommand = Notification.Name("scrap.editorCommand")
+}
+
+/// Formatting and list commands sent from menus and buttons to the text view.
+enum EditorCommand: String {
+    case bold, italic, strikethrough, code, divider, task, checkbox
+
+    func post() { NotificationCenter.default.post(name: .editorCommand, object: nil, userInfo: ["command": rawValue]) }
 }
 
 /// The gear button registers itself here so the settings popover can attach to it.
