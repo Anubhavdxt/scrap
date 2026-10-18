@@ -13,6 +13,7 @@ let package = Package(
         .target(name: "ScrapCore", swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(name: "ScrapApp", dependencies: ["ScrapCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
         .executableTarget(name: "scrap-cli", dependencies: ["ScrapCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "ScrapAppTests", dependencies: ["ScrapApp", "ScrapCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(name: "ScrapCoreTests", dependencies: ["ScrapCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

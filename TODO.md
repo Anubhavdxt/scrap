@@ -27,7 +27,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [ ] Opt-in anonymous ping only after the above
 - [x] Launch at login
 - [ ] Per-language highlighting for fenced code (currently a generic lexer)
-- [ ] Tests for the app target (EditorModel) and a manual QA checklist
+- [x] Tests for the app target (EditorModel, 15 tests) and a manual QA checklist (`docs/QA.md`)
 
 ## Housekeeping
 - [ ] Verify conflict handling on two real Macs (iCloud's conflict file naming is assumed, see ConflictResolver)
