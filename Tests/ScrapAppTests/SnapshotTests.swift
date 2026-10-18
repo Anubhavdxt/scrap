@@ -251,7 +251,7 @@ final class StylingPerformanceTests: XCTestCase {
         let text = String(repeating: block, count: 700)   // about 100 KB
         let theme = Themes.all.first { $0.id == "cobalt2-dark" }!
         let storage = NSTextStorage(string: text)
-        let style = MarkdownStyle(theme: theme, baseFont: EditorFont.font(size: 14, family: ""), colorHighlights: true, markers: .hide)
+        let style = MarkdownStyle(theme: theme, baseFont: EditorFont.font(size: 14, family: ""), codeFont: EditorFont.codeFont(size: 14, family: ""), colorHighlights: true, markers: .hide)
         let t0 = Date()
         let spans = MarkdownHighlighter.spans(in: text)
         let t1 = Date()
@@ -396,5 +396,165 @@ final class PopoverSnapshotTests: XCTestCase {
         view.cacheDisplay(in: view.bounds, to: rep)
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent("popover.png"))
+    }
+}
+
+/// Proportional prose with monospaced code, and the raw (plain) view.
+@MainActor
+final class RenderedFontTests: XCTestCase {
+    private final class Box { var text: String; var selection = NSRange(location: 0, length: 0); init(_ t: String) { text = t } }
+
+    private func editor(_ text: String, family: String = "system", rendered: Bool = true, pad: Int = 3, box: Box? = nil) -> NSTextView {
+        let box = box ?? Box(text)
+        let theme = Themes.all.first { $0.id == "cobalt2-dark" }!
+        let binding = Binding(get: { box.text }, set: { box.text = $0 })
+        let selection = Binding(get: { box.selection }, set: { box.selection = $0 })
+        let view = NSHostingView(rootView: EditorView(text: binding, theme: theme, fontSize: 14, fontFamily: family, wrap: true, rendered: rendered,
+                                                      selectionColor: PadColors.nsColor(for: pad), selection: selection).frame(width: 520, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        func find(_ v: NSView) -> NSTextView? { (v as? NSTextView) ?? v.subviews.lazy.compactMap(find).first }
+        let tv = find(view)!
+        tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0)) // caret on the last line
+        _ = window
+        return tv
+    }
+
+    private func font(_ tv: NSTextView, _ needle: String) -> NSFont? {
+        let range = (tv.string as NSString).range(of: needle)
+        return tv.textStorage?.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont
+    }
+
+    func testTheFontChoices() {
+        XCTAssertFalse(EditorFont.font(size: 14, family: "system").isFixedPitch, "proportional")
+        XCTAssertTrue(EditorFont.font(size: 14, family: "").isFixedPitch)
+        XCTAssertTrue(EditorFont.font(size: 14, family: "Menlo").isFixedPitch)
+        for family in ["system", "", "Menlo", "Not A Font"] {
+            XCTAssertTrue(EditorFont.codeFont(size: 14, family: family).isFixedPitch, "code is monospaced whatever the prose font (\(family))")
+        }
+        let mono = EditorFont.font(size: 14, family: "")
+        XCTAssertEqual(EditorFont.cellWidth(mono), mono.maximumAdvancement.width, accuracy: 0.01)
+        XCTAssertGreaterThan(EditorFont.cellWidth(.systemFont(ofSize: 14)), 5)
+    }
+
+    func testProseIsProportionalAndCodeIsMonospaced() {
+        let tv = editor("# Title\nplain **bold** and `inline` text\n```\nblock line\n```\nlast")
+        XCTAssertFalse(font(tv, "plain")!.isFixedPitch, "prose uses the proportional system font")
+        XCTAssertFalse(font(tv, "Title")!.isFixedPitch, "headings too")
+        XCTAssertFalse(font(tv, "bold")!.isFixedPitch)
+        XCTAssertTrue(font(tv, "inline")!.isFixedPitch, "inline code stays monospaced")
+        XCTAssertTrue(font(tv, "block line")!.isFixedPitch, "code blocks stay monospaced")
+        XCTAssertTrue(font(tv, "bold")!.fontDescriptor.symbolicTraits.contains(.bold), "and bold still works in the proportional font")
+    }
+
+    func testMonospacedChoiceKeepsEverythingMonospaced() {
+        let tv = editor("plain text\n```\ncode\n```\nlast", family: "")
+        XCTAssertTrue(font(tv, "plain")!.isFixedPitch)
+        XCTAssertTrue(font(tv, "code")!.isFixedPitch)
+    }
+
+    func testHiddenMarkersAndIconsStayExactWithProportionalText() {
+        let tv = editor("a **bold** b and ### x\n- [ ] task\n- plain\nlast line")
+        let ns = tv.string as NSString
+        let stars = ns.range(of: "**")
+        let hidden = tv.textStorage!.attributedSubstring(from: stars)
+        XCTAssertEqual(hidden.size().width, 0, accuracy: 0.6, "a hidden marker takes no room even in a proportional font")
+        let marker = ns.range(of: "- [ ] ")
+        let width = tv.textStorage!.attributedSubstring(from: marker).size().width
+        XCTAssertEqual(width, (14 * 1.4).rounded(), accuracy: 0.6, "a task marker collapses to exactly the icon's width")
+        let bullet = ns.range(of: "- plain")
+        let bulletMarker = NSRange(location: bullet.location, length: 2)
+        XCTAssertEqual(tv.textStorage!.attributedSubstring(from: bulletMarker).size().width, (14 * 1.4).rounded(), accuracy: 0.6)
+    }
+
+    func testRawModeShowsTheFileAsPlainMonospacedText() {
+        let source = "# Title\n**bold** and *it* and `code`\n- [ ] task\n- bullet\n> quote\n```\nblock\n```\nend"
+        let tv = editor(source, rendered: false)
+        XCTAssertEqual(tv.string, source)
+        let storage = tv.textStorage!
+        var base: NSFont?
+        storage.enumerateAttributes(in: NSRange(location: 0, length: storage.length), options: []) { attrs, _, _ in
+            let font = attrs[.font] as? NSFont
+            XCTAssertTrue(font?.isFixedPitch == true, "everything is monospaced")
+            if base == nil { base = font }
+            XCTAssertEqual(font?.pointSize, base?.pointSize, "no sized headings")
+            XCTAssertNil(attrs[.kern], "no markers are hidden")
+            XCTAssertNil(attrs[.scrapMarker], "no icons")
+            XCTAssertNil(attrs[.scrapBlock], "no panels")
+            XCTAssertNil(attrs[.scrapQuote])
+            XCTAssertNil(attrs[.underlineStyle])
+            XCTAssertNil(attrs[.strikethroughStyle])
+            XCTAssertNil(attrs[.paragraphStyle])
+        }
+        var colours = Set<String>()
+        storage.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: storage.length), options: []) { v, _, _ in colours.insert((v as? NSColor)?.description ?? "nil") }
+        XCTAssertEqual(colours.count, 1, "one text colour")
+    }
+
+    func testSwitchingBetweenRawAndRenderedChangesNothingInTheText() {
+        let source = "# T\n**b** - [ ] x"
+        XCTAssertEqual(editor(source, rendered: true).string, source)
+        XCTAssertEqual(editor(source, rendered: false).string, source)
+    }
+
+    func testSelectionIsHighlightedInThePadColourAndPublished() {
+        let box = Box("select some of this text")
+        let tv = editor(box.text, pad: 3, box: box)
+        let background = tv.selectedTextAttributes[.backgroundColor] as? NSColor
+        let expected = PadColors.nsColor(for: 3).usingColorSpace(.deviceRGB)!
+        let got = background?.usingColorSpace(.deviceRGB)
+        XCTAssertEqual(got?.redComponent ?? -1, expected.redComponent, accuracy: 0.02)
+        XCTAssertEqual(got?.greenComponent ?? -1, expected.greenComponent, accuracy: 0.02)
+        XCTAssertEqual(got?.alphaComponent ?? -1, 0.35, accuracy: 0.02)
+
+        tv.setSelectedRange(NSRange(location: 7, length: 4))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        XCTAssertEqual(box.selection, NSRange(location: 7, length: 4), "the footer is told what is selected")
+    }
+}
+
+/// The footer while text is selected, as a picture (opt-in).
+@MainActor
+final class SelectionFooterSnapshotTests: XCTestCase {
+    func testRender() throws {
+        guard let dir = ProcessInfo.processInfo.environment["SCRAP_SNAPSHOT_DIR"] else { throw XCTSkip("set SCRAP_SNAPSHOT_DIR to write snapshots") }
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-snaps-\(UUID().uuidString)")
+        let pads = home.appendingPathComponent("pads")
+        try FileManager.default.createDirectory(at: pads, withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: pads.path, pads: 7), home: home)
+        let text = "# Salary discussion\nI'm open to **negotiations** as per market standards.\n- [ ] Send a follow-up e-mail after 48 hours\n- plain bullet with `code` inside\n\n```swift\nlet x = 1\n```\nSee https://example.com now."
+        try text.write(to: pads.appendingPathComponent("3.md"), atomically: true, encoding: .utf8)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        UserDefaults.standard.set(3, forKey: "lastPad")
+        defer { ["sayHiDone", "lastPad", "rendered"].forEach { UserDefaults.standard.removeObject(forKey: $0) } }
+        let model = EditorModel()
+        let size = WindowSize.current()
+        let view = NSHostingView(rootView: ContentView(model: model).frame(width: size.width, height: size.height))
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+        func find(_ v: NSView) -> NSTextView? { (v as? NSTextView) ?? v.subviews.lazy.compactMap(find).first }
+        let tv = try XCTUnwrap(find(view))
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        func shot(_ name: String) throws {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+            view.layoutSubtreeIfNeeded()
+            let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
+        }
+        tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+        try shot("rendered.png")
+        tv.setSelectedRange(NSRange(location: 0, length: (text as NSString).length))
+        try shot("selected.png")
+        UserDefaults.standard.set(false, forKey: "rendered")
+        tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+        try shot("raw.png")
     }
 }

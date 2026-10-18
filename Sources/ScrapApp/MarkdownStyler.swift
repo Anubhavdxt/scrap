@@ -16,7 +16,10 @@ enum MarkerMode: String {
 
 struct MarkdownStyle {
     var theme: Theme
+    /// The prose font (proportional or monospaced, per the setting).
     var baseFont: NSFont
+    /// Code, code blocks and raw text: always monospaced.
+    var codeFont: NSFont
     var colorHighlights: Bool
     var markers: MarkerMode
 
@@ -25,7 +28,8 @@ struct MarkdownStyle {
     var baseAttributes: [NSAttributedString.Key: Any] { [.font: baseFont, .foregroundColor: base] }
     /// Space reserved at the left of a bullet or task for its drawn icon.
     var iconAdvance: CGFloat { (baseFont.pointSize * 1.4).rounded() }
-    var cell: CGFloat { baseFont.maximumAdvancement.width }
+    /// Width of a space in the prose font: what one column of indentation is worth.
+    var space: CGFloat { EditorFont.advance(of: " ", in: baseFont) }
 
     static let headingScale: [CGFloat] = [1.55, 1.35, 1.2, 1.1, 1.0, 1.0]
 }
@@ -33,6 +37,14 @@ struct MarkdownStyle {
 /// Turns the highlighter's spans into text attributes: weights, sizes, colours, hidden syntax, panels and bars.
 /// The text itself is never changed, so the file stays plain Markdown.
 enum MarkdownStyler {
+    /// Raw mode: the text exactly as in the file, one monospaced font and one colour, nothing hidden or drawn.
+    static func applyRaw(to storage: NSTextStorage, range: NSRange, style: MarkdownStyle) {
+        guard range.length > 0 else { return }
+        storage.beginEditing()
+        storage.setAttributes([.font: style.codeFont, .foregroundColor: style.base], range: range)
+        storage.endEditing()
+    }
+
     /// Restyles `range` (which must be made of whole paragraphs). `reveal` is the paragraph(s) with the caret,
     /// where hidden syntax is shown so it can be edited.
     static func apply(_ spans: [Span], to storage: NSTextStorage, range: NSRange, reveal: NSRange, style: MarkdownStyle) {
@@ -68,6 +80,7 @@ enum MarkdownStyler {
         if italic { traits.insert(.italic) }
         let size = span.heading > 0 ? style.baseFont.pointSize * MarkdownStyle.headingScale[min(span.heading, 6) - 1] : nil
 
+        if span.block || span.code || span.inlineCode { attrs[.font] = style.codeFont }
         if span.strike {
             // Finished tasks and ~~struck~~ text: struck through and dimmed, not themed like a comment.
             attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
@@ -107,7 +120,7 @@ enum MarkdownStyler {
         storage.enumerateAttribute(.font, in: range, options: []) { value, run, _ in
             let current = (value as? NSFont) ?? style.baseFont
             let combined = current.fontDescriptor.symbolicTraits.union(traits)
-            let font = NSFont(descriptor: style.baseFont.fontDescriptor.withSymbolicTraits(combined), size: size ?? current.pointSize) ?? current
+            let font = NSFont(descriptor: current.fontDescriptor.withSymbolicTraits(combined), size: size ?? current.pointSize) ?? current
             storage.addAttribute(.font, value: font, range: run)
         }
     }
@@ -118,7 +131,7 @@ enum MarkdownStyler {
         let revealed = NSIntersectionRange(paragraphRange, reveal).length > 0 || (reveal.length == 0 && NSLocationInRange(reveal.location, paragraphRange))
         let hidden = style.markers == .hide && !revealed && !span.block
         if span.block {
-            storage.addAttributes([.foregroundColor: style.base.withAlphaComponent(0.4)], range: span.range)
+            storage.addAttributes([.foregroundColor: style.base.withAlphaComponent(0.4), .font: style.codeFont], range: span.range)
             storage.addAttribute(.scrapBlock, value: 1, range: paragraphRange)
             let indent = NSMutableParagraphStyle()
             indent.firstLineHeadIndent = 8
@@ -131,7 +144,8 @@ enum MarkdownStyler {
             storage.addAttribute(.foregroundColor, value: NSColor.clear, range: span.range)
             for i in span.range.location..<span.range.upperBound {
                 let font = storage.attribute(.font, at: i, effectiveRange: nil) as? NSFont ?? style.baseFont
-                storage.addAttribute(.kern, value: -font.maximumAdvancement.width, range: NSRange(location: i, length: 1))
+                let width = EditorFont.advance(of: ns.substring(with: NSRange(location: i, length: 1)), in: font)
+                storage.addAttribute(.kern, value: -width, range: NSRange(location: i, length: 1))
             }
         } else {
             let alpha: CGFloat = style.markers == .show ? 0.6 : (revealed ? 0.5 : 0.35)
@@ -142,19 +156,21 @@ enum MarkdownStyler {
     /// Collapses a bullet or task marker to an icon-sized gap (drawn by `ScrapLayoutManager`) and gives wrapped lines
     /// of the item a hanging indent, so continuation lines align with the item's text.
     private static func applyMarker(_ marker: ListMarker, over range: NSRange, to storage: NSTextStorage, ns: NSString, style: MarkdownStyle) {
-        let indent = CGFloat(marker.indentColumns) * style.cell
+        let indent = CGFloat(marker.indentColumns) * style.space
         let paragraph = NSMutableParagraphStyle()
         paragraph.firstLineHeadIndent = 0
         switch marker.kind {
         case .number:
-            paragraph.headIndent = indent + CGFloat(marker.columns) * style.cell
+            paragraph.headIndent = indent + EditorFont.advance(of: ns.substring(with: range), in: style.baseFont)
         case .bullet, .taskOpen, .taskDone:
             paragraph.headIndent = indent + style.iconAdvance
             // Keep the characters (the file stays plain Markdown) but make them zero-width and invisible.
             storage.addAttribute(.foregroundColor, value: NSColor.clear, range: range)
             for i in range.location..<range.upperBound {
                 let last = i == range.upperBound - 1
-                storage.addAttribute(.kern, value: last ? style.iconAdvance - style.cell : -style.cell, range: NSRange(location: i, length: 1))
+                // Cancel each character's own width (they differ in a proportional font), leaving `iconAdvance` in total.
+                let width = EditorFont.advance(of: ns.substring(with: NSRange(location: i, length: 1)), in: style.baseFont)
+                storage.addAttribute(.kern, value: last ? style.iconAdvance - width : -width, range: NSRange(location: i, length: 1))
             }
             let kind: MarkerKind = marker.kind == .bullet ? .bullet : (marker.kind == .taskOpen ? .taskOpen : .taskDone)
             storage.addAttribute(.scrapMarker, value: kind.rawValue, range: range)

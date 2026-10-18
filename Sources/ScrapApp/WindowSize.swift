@@ -16,7 +16,7 @@ enum WindowSize {
 
     static func contentSize(cols: Int, rows: Int) -> CGSize {
         let font = EditorFont.current
-        let cell = font.maximumAdvancement.width
+        let cell = EditorFont.cellWidth(font)
         let line = NSLayoutManager().defaultLineHeight(for: font)
         var size = CGSize(
             width: ceil(CGFloat(cols) * cell + 2 * (textInset + linePadding)),

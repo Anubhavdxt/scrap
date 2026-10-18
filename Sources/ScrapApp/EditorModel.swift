@@ -11,6 +11,8 @@ final class EditorModel: ObservableObject {
     @Published private(set) var pads: [Pad] = []
     @Published private(set) var pad: Pad
     @Published private(set) var padCount: Int
+    /// The editor's current selection, for the footer's counts.
+    @Published var selection = NSRange(location: 0, length: 0)
     @Published private(set) var folder: URL
     @Published private(set) var error: String?
     /// A short, non-error message (for example after merging a sync conflict).
