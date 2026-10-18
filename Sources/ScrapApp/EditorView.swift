@@ -93,7 +93,11 @@ struct EditorView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: EditorView
         private var appliedTheme: String?
-        private var baseFont: NSFont { EditorFont.font(size: parent.fontSize, family: parent.fontFamily) }
+        /// The prose font; raw mode is monospaced.
+        private var baseFont: NSFont {
+            parent.rendered ? EditorFont.font(size: parent.fontSize, family: parent.fontFamily)
+                            : EditorFont.codeFont(size: parent.fontSize, family: parent.fontFamily)
+        }
 
         var focusObserver: NSObjectProtocol?
         var commandObserver: NSObjectProtocol?
@@ -204,7 +208,8 @@ struct EditorView: NSViewRepresentable {
 
         private var style: MarkdownStyle {
             MarkdownStyle(theme: parent.theme, baseFont: baseFont, codeFont: EditorFont.codeFont(size: parent.fontSize, family: parent.fontFamily),
-                          colorHighlights: parent.colorHighlights, markers: MarkerMode(rawValue: parent.markers) ?? .hide)
+                          colorHighlights: parent.colorHighlights, markers: MarkerMode(rawValue: parent.markers) ?? .hide,
+                          raw: !parent.rendered)
         }
 
         /// Re-styles the whole text (after an edit or a settings change).
@@ -218,14 +223,6 @@ struct EditorView: NSViewRepresentable {
                 lm.iconAdvance = style.iconAdvance
             }
             let full = NSRange(location: 0, length: storage.length)
-            guard parent.rendered else {
-                // Raw: the file as it is.
-                spans = []
-                spansText = nil
-                tv.typingAttributes = [.font: style.codeFont, .foregroundColor: style.base]
-                MarkdownStyler.applyRaw(to: storage, range: full, style: style)
-                return
-            }
             tv.typingAttributes = style.baseAttributes
             if storage.length <= EditorView.maxHighlightLength {
                 if spansText != storage.string {

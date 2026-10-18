@@ -29,4 +29,10 @@ final class RelativeTimeTests: XCTestCase {
         let lastYear = RelativeTime.text(for: now.addingTimeInterval(-500 * 86_400), now: now)
         XCTAssertTrue(lastYear.contains("20"), "an older year is spelled out: \(lastYear)")
     }
+
+    func testSentenceCaseForTheFooter() {
+        XCTAssertEqual(RelativeTime.sentence(for: now, now: now), "Just now")
+        XCTAssertEqual(RelativeTime.sentence(for: now.addingTimeInterval(-300), now: now), "5 min ago")
+        XCTAssertEqual(RelativeTime.sentence(for: now.addingTimeInterval(-3 * 3600), now: now), "3 hr ago")
+    }
 }

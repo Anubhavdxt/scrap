@@ -22,6 +22,9 @@ struct MarkdownStyle {
     var codeFont: NSFont
     var colorHighlights: Bool
     var markers: MarkerMode
+    /// Raw mode: the same colours, weights, panels and links, but every Markdown mark stays visible (nothing hidden,
+    /// no icons) and the text is monospaced.
+    var raw = false
 
     var base: NSColor { NSColor(hex: theme.color(.base)) }
     var accent: NSColor { NSColor(hex: theme.accent) }
@@ -37,14 +40,6 @@ struct MarkdownStyle {
 /// Turns the highlighter's spans into text attributes: weights, sizes, colours, hidden syntax, panels and bars.
 /// The text itself is never changed, so the file stays plain Markdown.
 enum MarkdownStyler {
-    /// Raw mode: the text exactly as in the file, one monospaced font and one colour, nothing hidden or drawn.
-    static func applyRaw(to storage: NSTextStorage, range: NSRange, style: MarkdownStyle) {
-        guard range.length > 0 else { return }
-        storage.beginEditing()
-        storage.setAttributes([.font: style.codeFont, .foregroundColor: style.base], range: range)
-        storage.endEditing()
-    }
-
     /// Restyles `range` (which must be made of whole paragraphs). `reveal` is the paragraph(s) with the caret,
     /// where hidden syntax is shown so it can be edited.
     static func apply(_ spans: [Span], to storage: NSTextStorage, range: NSRange, reveal: NSRange, style: MarkdownStyle) {
@@ -64,7 +59,11 @@ enum MarkdownStyler {
 
     private static func apply(_ span: Span, to storage: NSTextStorage, ns: NSString, reveal: NSRange, style: MarkdownStyle) {
         let base = style.base
-        if span.syntax { return applySyntax(span, to: storage, ns: ns, reveal: reveal, style: style) }
+        if span.syntax {
+            // In raw mode the marks keep the colour of the element they belong to (bold's `**` is bold-coloured).
+            if style.raw && !span.block { return }
+            return applySyntax(span, to: storage, ns: ns, reveal: reveal, style: style)
+        }
 
         var attrs: [NSAttributedString.Key: Any] = [:]
         let themed = span.code || style.colorHighlights || span.token == .comment || span.token == .base
@@ -111,7 +110,7 @@ enum MarkdownStyler {
             indent.headIndent = 14
             storage.addAttribute(.paragraphStyle, value: indent, range: paragraph(span.range, ns))
         }
-        if let marker = span.marker { applyMarker(marker, over: span.range, to: storage, ns: ns, style: style) }
+        if let marker = span.marker, !style.raw { applyMarker(marker, over: span.range, to: storage, ns: ns, style: style) }
     }
 
     /// Adds bold/italic (and optionally a size) to whatever font each part of `range` already has.
