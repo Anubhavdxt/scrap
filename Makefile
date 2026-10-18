@@ -16,6 +16,7 @@ app: build
 	cp Resources/Info.plist $(APP)/Contents/Info.plist
 	mkdir -p $(APP)/Contents/Resources
 	cp Resources/AppIcon.icns Resources/MenuBarIcon.png Resources/MenuBarIcon@2x.png $(APP)/Contents/Resources/
+	cp -R Resources/Icons $(APP)/Contents/Resources/Icons
 	codesign --force --sign - $(APP)
 
 install: app
@@ -33,6 +34,7 @@ icons:
 	swift scripts/make_icon.swift $(BUILD)/icons
 	iconutil -c icns $(BUILD)/icons/AppIcon.iconset -o Resources/AppIcon.icns
 	cp $(BUILD)/icons/MenuBarIcon.png $(BUILD)/icons/MenuBarIcon@2x.png Resources/
+	mkdir -p Resources/Icons && cp $(BUILD)/icons/Icons/*.png Resources/Icons/
 	cp $(BUILD)/icons/logo.png $(BUILD)/icons/social-preview.png docs/
 
 test:

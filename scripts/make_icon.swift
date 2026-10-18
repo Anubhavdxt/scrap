@@ -57,7 +57,19 @@ let padColors: [UInt32] = [0xFF453A, 0xFF9F0A, 0xFFD60A, 0x30D158, 0x0A84FF, 0xB
 
 // MARK: App icon
 
-func drawAppIcon(_ ctx: CGContext, size: CGFloat, withMargin: Bool = true) {
+/// Tile colours for the app icon; the first is the one that ships as the bundle icon.
+struct IconVariant { let id: String; let tile: UInt32; let top: UInt32; let bottom: UInt32 }
+let variants = [
+    IconVariant(id: "cobalt", tile: 0x193549, top: 0x24557a, bottom: 0x0d2235),
+    IconVariant(id: "graphite", tile: 0x2b2f35, top: 0x4a4f57, bottom: 0x1c1f24),
+    IconVariant(id: "midnight", tile: 0x111114, top: 0x2a2a2e, bottom: 0x050506),
+    IconVariant(id: "forest", tile: 0x143a2b, top: 0x2f7d57, bottom: 0x0e2f22),
+    IconVariant(id: "violet", tile: 0x2d2170, top: 0x7a5af5, bottom: 0x261a63),
+    IconVariant(id: "sunset", tile: 0x7a1f3d, top: 0xff7a45, bottom: 0x7a1f3d),
+    IconVariant(id: "rose", tile: 0x8a2a52, top: 0xff6f91, bottom: 0x8a2a52),
+]
+
+func drawAppIcon(_ ctx: CGContext, size: CGFloat, withMargin: Bool = true, variant: IconVariant = variants[0]) {
     let s = size / 1024
     ctx.scaleBy(x: s, y: s)
     let box = withMargin ? CGRect(x: 100, y: 100, width: 824, height: 824) : CGRect(x: 0, y: 0, width: 1024, height: 1024)
@@ -67,14 +79,14 @@ func drawAppIcon(_ ctx: CGContext, size: CGFloat, withMargin: Bool = true) {
     ctx.saveGState()
     ctx.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: rgb(0x000000, 0.45))
     ctx.addPath(CGPath(roundedRect: box, cornerWidth: radius, cornerHeight: radius, transform: nil))
-    ctx.setFillColor(rgb(0x193549))
+    ctx.setFillColor(rgb(variant.tile))
     ctx.fillPath()
     ctx.restoreGState()
 
     ctx.saveGState()
     ctx.addPath(CGPath(roundedRect: box, cornerWidth: radius, cornerHeight: radius, transform: nil))
     ctx.clip()
-    let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [rgb(0x24557a), rgb(0x0d2235)] as CFArray, locations: [0, 1])!
+    let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: [rgb(variant.top), rgb(variant.bottom)] as CFArray, locations: [0, 1])!
     ctx.drawLinearGradient(gradient, start: CGPoint(x: 512, y: box.maxY), end: CGPoint(x: 512, y: box.minY), options: [])
     ctx.restoreGState()
     ctx.addPath(CGPath(roundedRect: box.insetBy(dx: 1.5, dy: 1.5), cornerWidth: radius, cornerHeight: radius, transform: nil))
@@ -123,7 +135,7 @@ func drawAppIcon(_ ctx: CGContext, size: CGFloat, withMargin: Bool = true) {
     ctx.restoreGState()
 }
 
-func appIcon(_ px: Int) -> NSBitmapImageRep { bitmap(px, px) { drawAppIcon($0, size: CGFloat(px)) } }
+func appIcon(_ px: Int, variant: IconVariant = variants[0]) -> NSBitmapImageRep { bitmap(px, px) { drawAppIcon($0, size: CGFloat(px), variant: variant) } }
 
 // MARK: Menu bar template (black on clear, macOS tints it)
 
@@ -175,4 +187,5 @@ write(menuBarIcon(18), "MenuBarIcon.png")
 write(menuBarIcon(36), "MenuBarIcon@2x.png")
 write(appIcon(512), "logo.png")
 write(socialPreview(), "social-preview.png")
+for v in variants { write(appIcon(512, variant: v), "Icons/\(v.id).png") }
 print("wrote assets to \(out.path)")

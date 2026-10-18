@@ -179,6 +179,7 @@ struct WindowDragHandle: NSViewRepresentable {
 struct PadDots: View {
     @ObservedObject var model: EditorModel
     @State private var hovered: Int?
+    @AppStorage("showPadNumber") private var showNumber = false
 
     var body: some View {
         HStack(spacing: 2) {
@@ -196,7 +197,11 @@ struct PadDots: View {
             if style.ringWidth > 0 {
                 Circle().strokeBorder(color.opacity(style.ringOpacity), lineWidth: style.ringWidth).frame(width: style.diameter, height: style.diameter)
             }
-            if style.innerDot > 0 { Circle().fill(color).frame(width: style.innerDot, height: style.innerDot) }
+            if showNumber {
+                Text("\(pad.number)")
+                    .font(.system(size: pad.number > 9 ? 7 : 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(current ? Color(nsColor: PadDotStyle.numberColor(on: PadColors.nsColor(for: pad.number))) : color)
+            } else if style.innerDot > 0 { Circle().fill(color).frame(width: style.innerDot, height: style.innerDot) }
         }
         .scaleEffect(hovered == pad.number && !current ? 1.15 : 1)
         .animation(.easeOut(duration: 0.12), value: hovered)

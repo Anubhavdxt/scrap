@@ -27,7 +27,8 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] From Tot's settings: menu bar icon tinted with the pad's colour, "Esc closes window" toggle, footer with task/format/share buttons and a "saved just now" indicator
 - [x] Hotkey opens the detached window at the pointer
 - [x] `scrap://` links: open a pad, add text (never read)
-- [ ] More from Tot's settings: "show pad number", custom bullets, vibrant background, alternate app icons
+- [x] From Tot's settings: pad number in its dot, alternate app icons (Dock)
+- [ ] Vibrant background
 - [x] Font size (⌘+ ⌘− ⌘0), font family picker, line wrapping toggle
 - [x] List helpers: Return continues lists, Tab indents, ⌘Return toggles checkboxes
 - [x] Detach/pin the popover into a normal window (pin button, remembers size and place, optional always-on-top)

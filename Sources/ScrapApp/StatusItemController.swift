@@ -56,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         MainMenu.install()
+        AppIcons.apply(UserDefaults.standard.string(forKey: "appIcon") ?? AppIcons.default)
         DispatchQueue.global(qos: .utility).async { _ = EditorFont.families } // warm the font list for Settings
         let model = EditorModel.shared
 
@@ -135,9 +136,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Settings that change how scrap shows up
 
+    private var appliedIcon: String?
+    private func applyAppIcon() {
+        let id = AppIcons.resolve(UserDefaults.standard.string(forKey: "appIcon") ?? AppIcons.default)
+        guard id != appliedIcon else { return }
+        appliedIcon = id
+        AppIcons.apply(id)
+    }
+
     private func defaultsChanged() {
         if DisplayPolicy.current() != policy { applyPolicy(initial: false) }
         applyLayout()
+        applyAppIcon()
         updateStatusImage()
     }
 

@@ -32,6 +32,8 @@ struct SettingsView: View {
     @AppStorage("autoList") private var autoList = true
     @AppStorage("keepIndent") private var keepIndent = true
     @AppStorage("tintMenuBar") private var tintMenuBar = true
+    @AppStorage("showPadNumber") private var showPadNumber = false
+    @AppStorage("appIcon") private var appIcon = AppIcons.default
     @AppStorage("tintFooter") private var tintFooter = true
     @AppStorage("allowURLAdd") private var allowURLAdd = true
     @AppStorage("escCloses") private var escCloses = true
@@ -196,6 +198,7 @@ struct SettingsView: View {
                     Toggle("Escape closes the window", isOn: $escCloses)
                     Toggle("Tint the menu bar icon with the pad colour", isOn: $tintMenuBar)
                     Toggle("Tint the footer with the pad colour", isOn: $tintFooter)
+                    Toggle("Show the pad number in its dot", isOn: $showPadNumber)
                 }
                 .toggleStyle(.checkbox)
             }
@@ -235,6 +238,23 @@ struct SettingsView: View {
 
     // MARK: Appearance
 
+    private var iconPicker: some View {
+        HStack(spacing: 6) {
+            ForEach(AppIcons.all) { choice in
+                Button { appIcon = choice.id } label: {
+                    Group {
+                        if let image = AppIcons.image(choice.id) { Image(nsImage: image).resizable() } else { Color.gray.opacity(0.3) }
+                    }
+                    .frame(width: 28, height: 28)
+                    .padding(2)
+                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(AppIcons.resolve(appIcon) == choice.id ? Color.accentColor : .clear, lineWidth: 2))
+                }
+                .buttonStyle(.plain)
+                .help(choice.name)
+            }
+        }
+    }
+
     private var look: some View {
         Group {
             row("Mode") {
@@ -245,6 +265,8 @@ struct SettingsView: View {
                 .labelsHidden()
                 .frame(width: 220)
             }
+            row("App icon") { iconPicker }
+            note("Changes the Dock icon while scrap runs; Finder keeps the original.")
             Text("Theme").font(.system(size: 13, weight: .medium))
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 12) {
                 ForEach(Themes.families, id: \.id) { f in swatch(f.id, f.name) }
