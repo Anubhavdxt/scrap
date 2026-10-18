@@ -276,7 +276,7 @@ struct FooterButtons: View {
                 .background(SymbolButtonAnchor())
                 .help("Bullets, dividers and symbols")
             Button { rendered.toggle() } label: { Image(systemName: rendered ? "eye" : "eye.slash") }
-                .help(rendered ? "Show raw (⌥⌘R)" : "Show rendered (⌥⌘R)")
+                .help(rendered ? "Show raw markdown (⌥⌘R)" : "Show rendered text (⌥⌘R)")
             ShareLink(item: model.text) { Image(systemName: "square.and.arrow.up") }
                 .disabled(model.text.isEmpty)
                 .help("Share this pad")

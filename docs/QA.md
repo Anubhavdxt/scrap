@@ -19,7 +19,7 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] The menu bar icon takes the colour of the current pad and changes as you switch pads; Settings > General > "Tint the menu bar icon" turns that off (plain template icon in light and dark menu bars)
 - [ ] Esc closes the editor (and closes settings first when it's open); Settings > General > "Escape closes the window" turns that off
 - [ ] Code blocks: the ``` lines are not visible (only a thin strip of padding where they were) and the language sits at the panel's top-right; the opening fence comes back when the caret is on it, so the language can be edited; Settings > Markdown marks Dim/Show and raw mode keep the fences visible; a block with no language has no label; a ``` line inside a longer ```` block is shown as code
-- [ ] Footer: stats, "Saved just now" becoming "1 min ago"; the `*` button opens the symbol picker, the eye button switches raw/rendered (tooltips "Show raw" and "Show rendered"), the share button shares the pad text; formatting is in the Format menu and its shortcuts (disabled when empty); the saved text drops away in a narrow window
+- [ ] Footer: stats, "Saved just now" becoming "1 min ago"; the `*` button opens the symbol picker, the eye button switches raw/rendered (tooltips "Show raw markdown" and "Show rendered text"), the share button shares the pad text; formatting is in the Format menu and its shortcuts (disabled when empty); the saved text drops away in a narrow window
 - [ ] Click the icon: the popover drops down from it and you can type immediately
 - [ ] ⌃⌥Space shows and hides it from any app
 - [ ] Clicking outside closes it; switching apps closes it; text typed just before closing is saved
