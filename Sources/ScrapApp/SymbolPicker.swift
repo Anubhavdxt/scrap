@@ -2,9 +2,12 @@ import ScrapCore
 import SwiftUI
 
 /// The `*` picker: smart bullets, dividers, bullets, checkmarks, arrows, numbers, technical keys and symbols.
-/// Choosing one puts it in the text at the cursor and closes the picker.
+/// It opens as a popover below the `*` button, so it never covers the note. Choosing one puts it in the text at the cursor
+/// and closes the picker.
 struct SymbolPicker: View {
-    @ObservedObject var model: EditorModel
+    /// The popover's content size.
+    static let size = CGSize(width: 316, height: 360)
+
     @State private var hovered: String?
 
     /// Groups of wide items (a pair of bullets, a divider) get bigger cells than single characters.
@@ -29,11 +32,7 @@ struct SymbolPicker: View {
             }
             .padding(12)
         }
-        .frame(width: 300)
-        .frame(maxHeight: 300)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(radius: 14)
+        .frame(width: Self.size.width, height: Self.size.height)
     }
 
     private func cell(_ item: SymbolItem) -> some View {
@@ -51,9 +50,11 @@ struct SymbolPicker: View {
         .help(item.title)
     }
 
-    private func choose(_ item: SymbolItem) {
-        model.showSymbols = false
+    private func choose(_ item: SymbolItem) { Self.send(item) }
+
+    /// Puts the item into the text and closes the picker.
+    static func send(_ item: SymbolItem) {
         SymbolRequest(item.kind).post()
-        DispatchQueue.main.async { NotificationCenter.default.post(name: .focusEditor, object: nil) }
+        NotificationCenter.default.post(name: .closeSymbols, object: nil)
     }
 }

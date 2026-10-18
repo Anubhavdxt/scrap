@@ -10,6 +10,8 @@ extension Notification.Name {
     static let editorCommand = Notification.Name("scrap.editorCommand")
     static let toggleDetach = Notification.Name("scrap.toggleDetach")
     static let insertSymbol = Notification.Name("scrap.insertSymbol")
+    static let toggleSymbols = Notification.Name("scrap.toggleSymbols")
+    static let closeSymbols = Notification.Name("scrap.closeSymbols")
 }
 
 /// Formatting and list commands sent from menus and buttons to the text view.
@@ -31,6 +33,11 @@ enum SettingsAnchor {
     static weak var view: NSView?
 }
 
+/// The `*` footer button registers itself here so the symbol picker can open below it.
+enum SymbolAnchor {
+    static weak var view: NSView?
+}
+
 /// The editor's home. Depending on the Settings it is a popover hanging from the menu bar icon, or a normal window
 /// (detached, or when there is no menu bar icon), with a menu bar icon, a Dock icon, or both. A settings popover attaches
 /// to the gear in either. Popovers are dismissed here (click elsewhere, Esc, app switch); the window stays until closed.
@@ -39,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private let settingsPopover = NSPopover()
+    private let symbolPopover = NSPopover()
     private lazy var windowController = EditorWindowController(model: EditorModel.shared)
     private var clickMonitors: [Any] = []
     private var keyMonitor: Any?
@@ -55,6 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsPopover.behavior = .applicationDefined
         settingsPopover.contentViewController = hosting(SettingsView(model: model))
         settingsPopover.contentSize = SettingsView.size
+        symbolPopover.behavior = .applicationDefined
+        symbolPopover.contentViewController = hosting(SymbolPicker())
+        symbolPopover.contentSize = SymbolPicker.size
         applyLayout()
 
         let center = NotificationCenter.default
@@ -62,11 +73,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 model.flush()
                 self?.settingsPopover.performClose(nil)
+                self?.symbolPopover.performClose(nil)
                 self?.updateClickMonitors()
             }
         }
-        center.addObserver(forName: NSPopover.willCloseNotification, object: settingsPopover, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.updateClickMonitors() }
+        for pop in [settingsPopover, symbolPopover] {
+            center.addObserver(forName: NSPopover.willCloseNotification, object: pop, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.updateClickMonitors() }
+            }
+        }
+        center.addObserver(forName: .toggleSymbols, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.toggleSymbols() }
+        }
+        center.addObserver(forName: .closeSymbols, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeSymbolsAndRefocus() }
         }
         center.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.defaultsChanged() }
@@ -147,6 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         popover.appearance = appearance
         settingsPopover.appearance = appearance
+        symbolPopover.appearance = appearance
         windowController.applySettings()
     }
 
@@ -261,6 +282,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Closes the things that are dismissed by clicking away: the settings popover and the editor popover.
     private func closeTransient() {
         settingsPopover.performClose(nil)
+        symbolPopover.performClose(nil)
         popover.performClose(nil)
     }
 
@@ -275,6 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsPopover.performClose(nil)
             return
         }
+        symbolPopover.performClose(nil)
         guard editorVisible else {
             show()
             // Let the editor lay out so the gear exists before the settings attach to it.
@@ -295,6 +318,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateClickMonitors()
     }
 
+    // MARK: Symbol picker
+
+    /// The `*` button opens the picker below the editor (so it doesn't cover the note), and closes it again.
+    private func toggleSymbols() {
+        if symbolPopover.isShown {
+            symbolPopover.performClose(nil)
+            return
+        }
+        settingsPopover.performClose(nil)
+        guard editorVisible else {
+            show()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.presentSymbols() }
+            return
+        }
+        presentSymbols()
+    }
+
+    private func presentSymbols() {
+        guard !symbolPopover.isShown else { return }
+        let button = SymbolAnchor.view.flatMap { $0.window?.isVisible == true ? $0 : nil }
+        guard let anchor = button ?? windowController.window?.contentView ?? popover.contentViewController?.view else { return }
+        let rect = button == nil
+            ? NSRect(x: anchor.bounds.maxX - 90, y: anchor.isFlipped ? anchor.bounds.maxY - 28 : 4, width: 24, height: 24)
+            : anchor.bounds
+        // Below the button, which is at the bottom of the editor: the picker hangs off the bottom edge, clear of the text.
+        symbolPopover.show(relativeTo: rect, of: anchor, preferredEdge: .minY)
+        updateClickMonitors()
+    }
+
+    /// A choice was made: close the picker and give the editor the keyboard back.
+    private func closeSymbolsAndRefocus() {
+        symbolPopover.performClose(nil)
+        (policy.usesWindow ? windowController.window : popover.contentViewController?.view.window)?.makeKey()
+        DispatchQueue.main.async { NotificationCenter.default.post(name: .focusEditor, object: nil) }
+    }
+
     // MARK: Dismissal
 
     /// Esc: closes settings first, then the editor, unless an overlay (palette, clear, say hi) is using the key.
@@ -303,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
                 let model = EditorModel.shared
-                if model.showSymbols { model.showSymbols = false; return nil }
+                if self.symbolPopover.isShown { self.symbolPopover.performClose(nil); return nil }
                 if model.showPalette || model.showClear || model.showSayHi { return event }
                 if self.settingsPopover.isShown { self.settingsPopover.performClose(nil); return nil }
                 let editorKey = self.policy.usesWindow ? self.windowController.isKey : self.popover.isShown
@@ -321,7 +380,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateClickMonitors() {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let wanted = self.popover.isShown || self.settingsPopover.isShown
+            let wanted = self.popover.isShown || self.settingsPopover.isShown || self.symbolPopover.isShown
             if wanted, self.clickMonitors.isEmpty { self.installClickMonitors() }
             if !wanted { self.clickMonitors.forEach(NSEvent.removeMonitor); self.clickMonitors = [] }
         }
@@ -333,14 +392,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }) { clickMonitors.append(global) }
         if let click = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
             MainActor.assumeIsolated {
-                guard let self, self.settingsPopover.isShown else { return event }
+                guard let self, self.settingsPopover.isShown || self.symbolPopover.isShown else { return event }
                 let editorWindows = [self.popover.contentViewController?.view.window, self.windowController.window]
                 guard editorWindows.contains(where: { $0 != nil && $0 === event.window }) else { return event }
-                if let anchor = SettingsAnchor.view {
-                    let point = anchor.convert(event.locationInWindow, from: nil)
-                    if anchor.bounds.insetBy(dx: -6, dy: -6).contains(point) { return event }
+                // A click in the editor closes the pane that is open, except on its own button, which toggles it.
+                for (pane, anchor) in [(self.settingsPopover, SettingsAnchor.view), (self.symbolPopover, SymbolAnchor.view)] where pane.isShown {
+                    if let anchor, anchor.bounds.insetBy(dx: -6, dy: -6).contains(anchor.convert(event.locationInWindow, from: nil)) { continue }
+                    pane.performClose(nil)
                 }
-                self.settingsPopover.performClose(nil)
                 return event
             }
         }) { clickMonitors.append(click) }
