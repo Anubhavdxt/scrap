@@ -17,7 +17,7 @@ final class EditorModel: ObservableObject {
     @Published private(set) var error: String?
     /// A short, non-error message (for example after merging a sync conflict).
     @Published private(set) var notice: String?
-    @Published var showPalette = false
+    @Published var showSearch = false
     @Published var showClear = false
     @Published var showSayHi: Bool
 
@@ -73,6 +73,24 @@ final class EditorModel: ObservableObject {
         UserDefaults.standard.set(target.number, forKey: Self.lastPadKey)
         lastSaved = content
         text = content
+    }
+
+    /// The text of every pad (the open one from memory, so unsaved edits are searched too).
+    func padTexts() -> [(number: Int, text: String)] {
+        var result: [(number: Int, text: String)] = []
+        for p in pads {
+            if p.number == pad.number { result.append((p.number, text)); continue }
+            let content = (try? store.read(p)) ?? ""
+            if !content.isEmpty { result.append((p.number, content)) }
+        }
+        return result
+    }
+
+    /// Opens the pad a search hit is in, and selects the match.
+    func openResult(_ hit: SearchHit) {
+        showSearch = false
+        if hit.pad != pad.number { open(number: hit.pad) }
+        NotificationCenter.default.post(name: .revealRange, object: nil, userInfo: ["location": hit.target.location, "length": hit.target.length])
     }
 
     func clearCurrent() {

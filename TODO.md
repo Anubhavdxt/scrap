@@ -5,7 +5,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 ## v1 milestones
 - [x] 1. Setup: SwiftPM package, Makefile app bundle, README, MIT license, repo hardening, CI
 - [x] 2. Core editor: pads as `.md` files, autosave, file watching (#2)
-- [x] 3. Pads: new, rename, trash, ⌘K quick-switch palette (#4)
+- [x] 3. Pads: new, rename, trash, ⌘K quick-switch palette (#4; now search across all pads)
 - [x] 4. Markdown highlighting, 18 ported themes (#5)
 - [x] 5. Global hotkey (⌃⌥Space) and menu bar item (#6)
 - [x] 6. CLI: `scrap add "…"` (argument or stdin), shares config with the app (#7)

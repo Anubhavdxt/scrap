@@ -81,6 +81,20 @@ struct EditorView: NSViewRepresentable {
             guard let tv, tv.window != nil, let request = note.object as? SymbolRequest else { return }
             coordinator?.insert(request.kind, in: tv)
         }
+        context.coordinator.revealObserver = NotificationCenter.default.addObserver(forName: .revealRange, object: nil, queue: .main) { [weak tv] note in
+            guard let location = note.userInfo?["location"] as? Int, let length = note.userInfo?["length"] as? Int else { return }
+            // The pad's text arrives with the next SwiftUI update, so wait for it.
+            DispatchQueue.main.async { DispatchQueue.main.async {
+                guard let tv else { return }
+                let total = (tv.string as NSString).length
+                guard location <= total else { return }
+                let range = NSRange(location: location, length: min(length, total - location))
+                tv.window?.makeFirstResponder(tv)
+                tv.setSelectedRange(range)
+                tv.scrollRangeToVisible(range)
+                tv.showFindIndicator(for: range)
+            } }
+        }
         context.coordinator.commandObserver = NotificationCenter.default.addObserver(forName: .editorCommand, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] note in
             guard let tv, tv.window?.isKeyWindow == true, let raw = note.userInfo?["command"] as? String,
                   let command = EditorCommand(rawValue: raw) else { return }
@@ -111,6 +125,7 @@ struct EditorView: NSViewRepresentable {
         }
 
         var focusObserver: NSObjectProtocol?
+        var revealObserver: NSObjectProtocol?
         var commandObserver: NSObjectProtocol?
         var symbolObserver: NSObjectProtocol?
 
@@ -118,6 +133,7 @@ struct EditorView: NSViewRepresentable {
 
         deinit {
             focusObserver.map(NotificationCenter.default.removeObserver)
+            revealObserver.map(NotificationCenter.default.removeObserver)
             commandObserver.map(NotificationCenter.default.removeObserver)
             symbolObserver.map(NotificationCenter.default.removeObserver)
         }
