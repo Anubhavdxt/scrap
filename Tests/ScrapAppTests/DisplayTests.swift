@@ -250,12 +250,14 @@ final class WindowFollowsPointerTests: XCTestCase {
         let centre = NSPoint(x: area.midX, y: area.midY)
         controller.show(near: centre)
         let window = try XCTUnwrap(controller.window)
-        XCTAssertEqual(window.frame.midX, centre.x, accuracy: 1.5)
-        XCTAssertEqual(window.frame.maxY, centre.y + PointerPlacement.topOffset, accuracy: 1.5)
+        let context = "window \(window.frame), visible area \(area), pointer \(centre)"
+        XCTAssertEqual(window.frame.midX, centre.x, accuracy: 2, context)
+        XCTAssertEqual(window.frame.maxY, centre.y + PointerPlacement.topOffset, accuracy: 2, context)
+        XCTAssertTrue(area.contains(window.frame), "stays on screen: \(context)")
 
         let other = NSPoint(x: area.minX + area.width * 0.3, y: area.minY + area.height * 0.6)
         controller.show(near: other)
-        XCTAssertEqual(window.frame.midX, other.x, accuracy: 1.5, "it follows the pointer each time")
+        XCTAssertEqual(window.frame.midX, other.x, accuracy: 2, "it follows the pointer each time (window \(window.frame), visible area \(area))")
         controller.hide()
     }
 

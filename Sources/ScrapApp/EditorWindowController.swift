@@ -31,11 +31,17 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     func show(near pointer: NSPoint? = nil, screens: [PointerPlacement.Screen] = PointerPlacement.currentScreens) {
         let window = ensureWindow()
         applySettings(to: window)
-        if let pointer {
-            window.setFrame(PointerPlacement.frame(size: window.frame.size, pointer: pointer, screens: screens), display: false)
+        func place() {
+            guard let pointer else { return }
+            let target = PointerPlacement.frame(size: window.frame.size, pointer: pointer, screens: screens)
+            if window.frame != target { window.setFrame(target, display: false) }
         }
+        place()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        // Ordering the window in can change its size a little (the title bar settles), and the top edge is what is aimed
+        // at the pointer, so place it once more with the size it really has.
+        place()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             guard !EditorModel.shared.showSayHi else { return }
             NotificationCenter.default.post(name: .focusEditor, object: nil)
