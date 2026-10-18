@@ -31,11 +31,13 @@ public enum ListEditing {
     // MARK: Return
 
     /// Return on a list line: continue the list, or end it when the item is empty. nil = let the text view handle it.
-    public static func returnKey(in text: String, selection: NSRange) -> TextEdit? {
+    public static func returnKey(in text: String, selection: NSRange, continueLists: Bool = true, keepIndent: Bool = true) -> TextEdit? {
         guard selection.length == 0 else { return nil }
         let ns = text as NSString
         let line = line(at: selection.location, in: ns)
-        guard let m = line.match else { return nil }
+        guard continueLists, let m = line.match else {
+            return keepIndent ? indentOnly(line, caret: selection.location) : nil
+        }
         let column = selection.location - line.range.location
         guard column >= m.range.length else { return nil } // cursor is inside the marker
 
@@ -103,6 +105,21 @@ public enum ListEditing {
             end = cursor
         }
         return changed ? (out, end) : nil
+    }
+
+    /// Return on a plain line that starts with spaces or tabs: start the next line at the same indentation.
+    /// On a line that is only indentation, clear it instead (the way out of an indented block).
+    private static func indentOnly(_ line: Line, caret: Int) -> TextEdit? {
+        let column = caret - line.range.location
+        let indent = String(line.text.prefix { $0 == " " || $0 == "\t" })
+        let indentLength = (indent as NSString).length
+        guard indentLength > 0, column >= indentLength else { return nil }
+        if line.text.trimmingCharacters(in: .whitespaces).isEmpty {
+            return TextEdit(range: line.range, replacement: "", selection: NSRange(location: line.range.location, length: 0))
+        }
+        let insertion = "\n" + indent
+        return TextEdit(range: NSRange(location: caret, length: 0), replacement: insertion,
+                        selection: NSRange(location: caret + (insertion as NSString).length, length: 0))
     }
 
     // MARK: Tab and Shift-Tab
@@ -183,5 +200,29 @@ public enum ListEditing {
         let at = NSRange(location: base + afterMarker, length: 0)
         let cursor = selection.location >= at.location ? selection.location + 4 : selection.location
         return TextEdit(range: at, replacement: "[ ] ", selection: NSRange(location: cursor, length: 0))
+    }
+
+    /// Turns the cursor's line into a task (adds `- [ ] `), or back into a plain item if it already is one.
+    public static func toggleTask(in text: String, selection: NSRange) -> TextEdit? {
+        let ns = text as NSString
+        let line = line(at: selection.location, in: ns)
+        let base = line.range.location
+        guard let m = line.match else {
+            let indentLength = (String(line.text.prefix { $0 == " " || $0 == "\t" }) as NSString).length
+            return insert("- [ ] ", at: base + indentLength, selection: selection)
+        }
+        let box = m.range(at: 4)
+        if box.location != NSNotFound {
+            let range = NSRange(location: base + box.location, length: box.length)
+            let cursor = selection.location > range.location ? max(range.location, selection.location - range.length) : selection.location
+            return TextEdit(range: range, replacement: "", selection: NSRange(location: cursor, length: 0))
+        }
+        return insert("[ ] ", at: base + m.range(at: 3).upperBound, selection: selection)
+    }
+
+    private static func insert(_ s: String, at location: Int, selection: NSRange) -> TextEdit {
+        let shift = (s as NSString).length
+        let cursor = selection.location >= location ? selection.location + shift : selection.location
+        return TextEdit(range: NSRange(location: location, length: 0), replacement: s, selection: NSRange(location: cursor, length: 0))
     }
 }

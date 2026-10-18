@@ -41,7 +41,8 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Quick switch | `⌘K` |
 | Go to pad 1–9 | `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
-| Lists | `Return` continues a list (empty item ends it), `Tab` / `⇧Tab` indent, `⌘Return` toggles a `- [ ]` checkbox |
+| Format | `⌘B` bold, `⌘I` italic, `⇧⌘X` strikethrough, `⌘E` code, `⌃-` divider (all toggle; they wrap the selection or the word at the cursor) |
+| Lists and tasks | `Return` continues a list (an empty item ends it) and keeps indentation, `Tab` / `⇧Tab` indent, `⌃8` makes or unmakes a task, `⌘Return` checks or unchecks it |
 | Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
 

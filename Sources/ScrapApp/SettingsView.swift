@@ -27,6 +27,8 @@ struct SettingsView: View {
     @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
     @AppStorage("fontFamily") private var fontFamily = ""
     @AppStorage("wrapLines") private var wrapLines = true
+    @AppStorage("autoList") private var autoList = true
+    @AppStorage("keepIndent") private var keepIndent = true
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
@@ -157,6 +159,15 @@ struct SettingsView: View {
                 }
             }
             note("Pads already in the old folder stay there. Copy them over if you want them.")
+            Divider().padding(.vertical, 2)
+            row("Typing") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Continue lists on Return", isOn: $autoList)
+                    Toggle("Keep indentation on Return", isOn: $keepIndent)
+                }
+                .toggleStyle(.checkbox)
+            }
+            note("Lists: bullets, numbers and tasks. Indentation applies to any line that starts with spaces or tabs.")
             row("Startup") {
                 Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
                     .toggleStyle(.checkbox)

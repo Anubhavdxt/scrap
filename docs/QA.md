@@ -26,6 +26,8 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and ⇧⌘Z work
 - [ ] Markdown is highlighted (headings, bold, italic, code, links, quotes, lists, fenced code) in a few themes, dark and light
 - [ ] Lists: Return continues, an empty item ends the list, Return mid-list renumbers, Tab/⇧Tab indent, ⌘Return toggles a checkbox, ⌘Z undoes each in one step
+- [ ] Format menu and shortcuts: ⌘B, ⌘I, ⇧⌘X, ⌘E wrap the selection or the word at the cursor and toggle off again; ⌃- inserts a divider; ⌃8 makes or unmakes a task; ⌘Return checks it; each is one undo step
+- [ ] Return keeps indentation on plain indented lines; Settings > General can turn list continuation and indentation off
 - [ ] ⌘+ ⌘− ⌘0 change the font size; View > Wrap Lines toggles wrapping; the font family picker changes the font
 - [ ] Very large text (a few hundred KB) stays responsive
 

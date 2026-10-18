@@ -30,6 +30,17 @@ enum MainMenu {
         item(edit, "Paste", #selector(NSText.paste(_:)), "v")
         item(edit, "Select All", #selector(NSText.selectAll(_:)), "a")
 
+        // Format
+        let format = submenu(of: main, title: "Format")
+        item(format, "Bold", #selector(Actions.bold), "b", target: Actions.shared)
+        item(format, "Italic", #selector(Actions.italic), "i", target: Actions.shared)
+        item(format, "Strikethrough", #selector(Actions.strikethrough), "x", target: Actions.shared).keyEquivalentModifierMask = [.command, .shift]
+        item(format, "Code", #selector(Actions.code), "e", target: Actions.shared)
+        format.addItem(.separator())
+        item(format, "Toggle Task", #selector(Actions.task), "8", target: Actions.shared).keyEquivalentModifierMask = [.control]
+        item(format, "Check or Uncheck Task", #selector(Actions.checkbox), "\r", target: Actions.shared)
+        item(format, "Insert Divider", #selector(Actions.divider), "-", target: Actions.shared).keyEquivalentModifierMask = [.control]
+
         // View
         let view = submenu(of: main, title: "View")
         item(view, "Increase Font Size", #selector(Actions.biggerFont), "+", target: Actions.shared)
@@ -62,6 +73,14 @@ enum MainMenu {
         static let shared = Actions()
         private var defaults: UserDefaults { .standard }
         private var fontSize: Double { defaults.object(forKey: "fontSize") as? Double ?? EditorFont.defaultSize }
+
+        @objc func bold() { EditorCommand.bold.post() }
+        @objc func italic() { EditorCommand.italic.post() }
+        @objc func strikethrough() { EditorCommand.strikethrough.post() }
+        @objc func code() { EditorCommand.code.post() }
+        @objc func task() { EditorCommand.task.post() }
+        @objc func checkbox() { EditorCommand.checkbox.post() }
+        @objc func divider() { EditorCommand.divider.post() }
 
         @objc func biggerFont() { defaults.set(min(fontSize + 1, EditorFont.sizeRange.upperBound), forKey: "fontSize") }
         @objc func smallerFont() { defaults.set(max(fontSize - 1, EditorFont.sizeRange.lowerBound), forKey: "fontSize") }

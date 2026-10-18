@@ -63,9 +63,10 @@ struct EditorView: NSViewRepresentable {
         context.coordinator.focusObserver = NotificationCenter.default.addObserver(forName: .focusEditor, object: nil, queue: .main) { [weak tv] _ in
             tv.flatMap { $0.window?.makeFirstResponder($0) }
         }
-        context.coordinator.checklistObserver = NotificationCenter.default.addObserver(forName: .toggleChecklist, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] _ in
-            guard let tv, tv.window?.isKeyWindow == true else { return }
-            coordinator?.apply(ListEditing.toggleChecklist(in: tv.string, selection: tv.selectedRange()), to: tv)
+        context.coordinator.commandObserver = NotificationCenter.default.addObserver(forName: .editorCommand, object: nil, queue: .main) { [weak tv, weak coordinator = context.coordinator] note in
+            guard let tv, tv.window?.isKeyWindow == true, let raw = note.userInfo?["command"] as? String,
+                  let command = EditorCommand(rawValue: raw) else { return }
+            coordinator?.run(command, in: tv)
         }
         return scroll
     }
@@ -88,13 +89,13 @@ struct EditorView: NSViewRepresentable {
         private var baseFont: NSFont { EditorFont.font(size: parent.fontSize, family: parent.fontFamily) }
 
         var focusObserver: NSObjectProtocol?
-        var checklistObserver: NSObjectProtocol?
+        var commandObserver: NSObjectProtocol?
 
         init(_ parent: EditorView) { self.parent = parent }
 
         deinit {
             focusObserver.map(NotificationCenter.default.removeObserver)
-            checklistObserver.map(NotificationCenter.default.removeObserver)
+            commandObserver.map(NotificationCenter.default.removeObserver)
         }
 
         func textDidChange(_ notification: Notification) {
@@ -109,7 +110,11 @@ struct EditorView: NSViewRepresentable {
             let text = textView.string, selection = textView.selectedRange()
             switch selector {
             case #selector(NSResponder.insertNewline(_:)):
-                return apply(ListEditing.returnKey(in: text, selection: selection), to: textView)
+                let d = UserDefaults.standard
+                let edit = ListEditing.returnKey(in: text, selection: selection,
+                                                 continueLists: d.object(forKey: "autoList") as? Bool ?? true,
+                                                 keepIndent: d.object(forKey: "keepIndent") as? Bool ?? true)
+                return apply(edit, to: textView)
             case #selector(NSResponder.insertTab(_:)):
                 return apply(ListEditing.indent(in: text, selection: selection, outdent: false), to: textView)
             case #selector(NSResponder.insertBacktab(_:)):
@@ -117,6 +122,22 @@ struct EditorView: NSViewRepresentable {
             default:
                 return false
             }
+        }
+
+        /// Runs a formatting or list command on the current selection.
+        func run(_ command: EditorCommand, in tv: NSTextView) {
+            let text = tv.string, selection = tv.selectedRange()
+            let edit: TextEdit?
+            switch command {
+            case .bold: edit = Formatting.toggle(.bold, in: text, selection: selection)
+            case .italic: edit = Formatting.toggle(.italic, in: text, selection: selection)
+            case .strikethrough: edit = Formatting.toggle(.strikethrough, in: text, selection: selection)
+            case .code: edit = Formatting.toggle(.code, in: text, selection: selection)
+            case .divider: edit = Formatting.insertDivider(in: text, selection: selection)
+            case .task: edit = ListEditing.toggleTask(in: text, selection: selection)
+            case .checkbox: edit = ListEditing.toggleChecklist(in: text, selection: selection)
+            }
+            apply(edit, to: tv)
         }
 
         /// Applies an edit as one undoable change. Returns whether there was an edit.
