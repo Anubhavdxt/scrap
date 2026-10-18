@@ -6,7 +6,7 @@ A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of
 
 - **Pads:** numbered colour dots at the top, `⌘1`–`⌘9` to jump, `⌘K` to search, `⇧⌘⌫` to clear
 - **Plain files:** pads are `1.md` … `N.md` in a folder you control, iCloud Drive by default
-- **Markdown:** headings, emphasis, links and fenced code are highlighted
+- **Markdown:** headings, emphasis, links and fenced code are highlighted, with per-language colours for Swift, JS/TS, Python, shell, JSON, SQL, Go, Rust, C/C++, Java/Kotlin, Ruby, HTML/XML, CSS, YAML, TOML/INI, diff and Dockerfile/Makefile (other languages get a generic lexer)
 - **Themes:** 9 editor themes, each in dark and light
 - **CLI:** `scrap add "buy milk"`, `pbpaste | scrap add -p 2`, `scrap show 2`, `scrap list`, `scrap link`
 - **Sync-safe:** if sync leaves a conflicting copy of a pad, both versions are kept
