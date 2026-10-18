@@ -27,6 +27,7 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Markdown is highlighted (headings, bold, italic, code, links, quotes, lists, fenced code) in a few themes, dark and light
 - [ ] Lists: Return continues, an empty item ends the list, Return mid-list renumbers, Tab/⇧Tab indent, ⌘Return toggles a checkbox, ⌘Z undoes each in one step
 - [ ] Format menu and shortcuts: ⌘B, ⌘I, ⇧⌘X, ⌘E wrap the selection or the word at the cursor and toggle off again; ⌃- inserts a divider; ⌃8 makes or unmakes a task; ⌘Return checks it; each is one undo step
+- [ ] Live rendering: headings are larger, **bold**/*italic*/~~strike~~ look bold/italic/struck, `code` has a chip, fenced blocks have a panel, quotes a bar; the syntax marks disappear away from the caret and return on the caret's line; Settings > Appearance: Markdown marks (hide/dim/show) and Colour highlights behave; the file text is never altered
 - [ ] Task lists: `- [ ]` shows a ring and `- [x]` a filled check with dimmed struck-through text; clicking the icon toggles it without moving the caret; bullets show as dots; wrapped lines hang under the text; backspace right after a marker removes it
 - [ ] Links: pasted URLs, `www.` addresses and `[text](url)` are underlined in the accent colour; the pointer turns into a hand over a task icon (and over a link while holding ⌘); ⌘-click opens the link
 - [ ] Return keeps indentation on plain indented lines; Settings > General can turn list continuation and indentation off

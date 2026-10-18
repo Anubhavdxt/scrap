@@ -42,6 +42,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Go to pad 1–9 | `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
 | Format | `⌘B` bold, `⌘I` italic, `⇧⌘X` strikethrough, `⌘E` code, `⌃-` divider (all toggle; they wrap the selection or the word at the cursor) |
+| Styling | Markdown is styled as you type: real bold, italic and ~~strikethrough~~, sized headings, `code` chips, code-block panels and quote bars. The `**`, `#`, backticks and `[ ]` marks hide except on the line you're editing (Settings: hide, dim or show), and Colour highlights can be turned off |
 | Tasks | `- [ ]` items are drawn as clickable circles: click to check, and done tasks dim and strike through. Bullets are drawn as dots. The file stays plain Markdown |
 | Links | URLs you paste or type, and `[text](url)` links, are underlined in the accent colour; `⌘`-click opens them |
 | Lists and tasks | `Return` continues a list (an empty item ends it) and keeps indentation, `Tab` / `⇧Tab` indent, `⌃8` makes or unmakes a task, `⌘Return` checks or unchecks it |

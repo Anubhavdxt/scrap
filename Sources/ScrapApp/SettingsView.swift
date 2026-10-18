@@ -27,6 +27,8 @@ struct SettingsView: View {
     @AppStorage("fontSize") private var fontSize = EditorFont.defaultSize
     @AppStorage("fontFamily") private var fontFamily = ""
     @AppStorage("wrapLines") private var wrapLines = true
+    @AppStorage("colorHighlights") private var colorHighlights = true
+    @AppStorage("markers") private var markers = "hide"
     @AppStorage("autoList") private var autoList = true
     @AppStorage("keepIndent") private var keepIndent = true
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
@@ -229,6 +231,18 @@ struct SettingsView: View {
                 if fontSize != EditorFont.defaultSize { Button("Reset") { fontSize = EditorFont.defaultSize }.controlSize(.small) }
             }
             row("Wrap lines") { Toggle("", isOn: $wrapLines).labelsHidden().toggleStyle(.switch) }
+            row("Colour highlights") { Toggle("", isOn: $colorHighlights).labelsHidden().toggleStyle(.switch) }
+            note("Colours bold, italic, links, headings and code. Off keeps the weights and underlines but uses one text colour.")
+            row("Markdown marks") {
+                Picker("", selection: $markers) {
+                    Text("Hide away from cursor").tag("hide")
+                    Text("Dim").tag("dim")
+                    Text("Show").tag("show")
+                }
+                .labelsHidden()
+                .frame(width: 200)
+            }
+            note("The ** # ` and [ ] around styled text. Hidden marks appear on the line you're editing.")
             note("⌘+ and ⌘− change the size, ⌘0 resets it. The window grows with the font because its size is in columns and rows.")
         }
     }

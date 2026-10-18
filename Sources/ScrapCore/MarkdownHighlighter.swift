@@ -20,6 +20,18 @@ public struct Span: Equatable {
     public var url: String? = nil
     /// Set on the span covering a list item's marker.
     public var marker: ListMarker? = nil
+    /// Markdown punctuation (`**`, `#`, backticks, link brackets, fences): dimmed, or hidden away from the cursor.
+    public var syntax = false
+    /// 1 to 6 on a heading's line.
+    public var heading = 0
+    /// On a block quote's line.
+    public var quote = false
+    /// On a line of a fenced code block, fence lines included (the editor draws one panel behind them).
+    public var block = false
+    /// Produced by the code lexer, so it keeps its syntax colours whatever the colour-highlight setting is.
+    public var code = false
+    /// A `` `code` `` run.
+    public var inlineCode = false
 }
 
 /// Line-based Markdown highlighter; fenced code is lexed per language (see `CodeLanguage`). Pure: returns spans only.
@@ -46,11 +58,14 @@ public enum MarkdownHighlighter {
                     language = CodeLanguage.forFence(trimmed.dropFirst(marker.count).trimmingCharacters(in: .whitespaces))
                     lexState = LexState()
                 }
-                spans.append(Span(range: range, token: .comment))
+                spans.append(Span(range: range, token: .comment, syntax: true, block: true))
                 return
             }
             if fence != nil {
+                spans.append(Span(range: range, token: .base, block: true))
+                let before = spans.count
                 CodeLexer.lex(line, at: range.location, language: language, state: &lexState, into: &spans)
+                for i in before..<spans.count { spans[i].code = true }
                 return
             }
             markdownLine(line, at: range.location, into: &spans)
@@ -76,6 +91,7 @@ public enum MarkdownHighlighter {
     private static let bold = try! NSRegularExpression(pattern: "(\\*\\*|__)(?=\\S)(.+?)(?<=\\S)\\1")
     private static let italic = try! NSRegularExpression(pattern: "(?<![*\\w])(\\*|_)(?=[^\\s*_])(.+?)(?<=[^\\s*_])\\1(?![*\\w])")
     private static let link = try! NSRegularExpression(pattern: "(!?)\\[([^\\]]*)\\]\\(([^)\\s]*)[^)]*\\)")
+    private static let strike = try! NSRegularExpression(pattern: "(~~)(?=\\S)(.+?)(?<=\\S)\\1")
     private static let autolink = try! NSRegularExpression(pattern: #"<((?:https?://|mailto:)[^>\s]+)>|(?:https?://|www\.|mailto:)[^\s<>]+"#)
 
     private static func markdownLine(_ line: String, at base: Int, into spans: inout [Span]) {
@@ -83,18 +99,23 @@ public enum MarkdownHighlighter {
         let whole = NSRange(location: 0, length: ns.length)
         func shift(_ r: NSRange) -> NSRange { NSRange(location: r.location + base, length: r.length) }
 
-        if heading.firstMatch(in: line, range: whole) != nil {
-            spans.append(Span(range: shift(whole), token: .title, bold: true))
+        if let h = heading.firstMatch(in: line, range: whole) {
+            let level = ns.substring(with: h.range).filter { $0 == "#" }.count
+            spans.append(Span(range: shift(whole), token: .title, bold: true, heading: level))
             inline(line, from: 0, base: base, emphasis: false, into: &spans)
+            spans.append(Span(range: shift(NSRange(location: 0, length: h.range.length)), token: .comment, syntax: true))
             return
         }
         if rule.firstMatch(in: line, range: whole) != nil {
             spans.append(Span(range: shift(whole), token: .comment))
             return
         }
-        if quote.firstMatch(in: line, range: whole) != nil {
-            spans.append(Span(range: shift(whole), token: .comment, italic: true))
+        if let q = quote.firstMatch(in: line, range: whole) {
+            spans.append(Span(range: shift(whole), token: .comment, italic: true, quote: true))
             inline(line, from: 0, base: base, emphasis: false, into: &spans)
+            // The `>` and one following space.
+            let markerLength = q.range.length + (q.range.upperBound < ns.length && ns.character(at: q.range.upperBound) == 32 ? 1 : 0)
+            spans.append(Span(range: shift(NSRange(location: 0, length: markerLength)), token: .comment, syntax: true))
             return
         }
         var start = 0
@@ -134,11 +155,24 @@ public enum MarkdownHighlighter {
         func scan(_ re: NSRegularExpression, _ body: (NSTextCheckingResult) -> Void) {
             for m in re.matches(in: line, range: rest) where free(m.range) { body(m); taken.append(m.range) }
         }
-        scan(inlineCode) { spans.append(Span(range: shift($0.range), token: .string)) }
+        func syntaxSpans(_ range: NSRange, open: Int, close: Int) {
+            spans.append(Span(range: shift(NSRange(location: range.location, length: open)), token: .comment, syntax: true))
+            spans.append(Span(range: shift(NSRange(location: range.upperBound - close, length: close)), token: .comment, syntax: true))
+        }
+        scan(inlineCode) { m in
+            spans.append(Span(range: shift(m.range), token: .string, inlineCode: true))
+            syntaxSpans(m.range, open: m.range(at: 1).length, close: m.range(at: 1).length)
+        }
         scan(link) { m in
             let isImage = m.range(at: 1).length > 0
             spans.append(Span(range: shift(m.range), token: .comment))
-            spans.append(Span(range: shift(m.range(at: 2)), token: .attr, url: isImage ? nil : normalizedURL(ns.substring(with: m.range(at: 3)))))
+            let text = m.range(at: 2)
+            spans.append(Span(range: shift(text), token: .attr, url: isImage ? nil : normalizedURL(ns.substring(with: m.range(at: 3)))))
+            if !isImage {
+                // `[` before the text, and `](address)` after it.
+                spans.append(Span(range: shift(NSRange(location: m.range.location, length: 1)), token: .comment, syntax: true))
+                spans.append(Span(range: shift(NSRange(location: text.upperBound, length: m.range.upperBound - text.upperBound)), token: .comment, syntax: true))
+            }
         }
         scan(autolink) { m in
             let inner = m.range(at: 1)
@@ -157,8 +191,18 @@ public enum MarkdownHighlighter {
             }
         }
         guard emphasis else { return }
-        scan(bold) { spans.append(Span(range: shift($0.range), token: .keyword, bold: true)) }
-        scan(italic) { spans.append(Span(range: shift($0.range), token: .type, italic: true)) }
+        scan(bold) { m in
+            spans.append(Span(range: shift(m.range), token: .keyword, bold: true))
+            syntaxSpans(m.range, open: 2, close: 2)
+        }
+        scan(strike) { m in
+            spans.append(Span(range: shift(m.range), token: .comment, strike: true))
+            syntaxSpans(m.range, open: 2, close: 2)
+        }
+        scan(italic) { m in
+            spans.append(Span(range: shift(m.range), token: .type, italic: true))
+            syntaxSpans(m.range, open: 1, close: 1)
+        }
     }
 
     /// Adds a scheme to bare `www.` addresses.
