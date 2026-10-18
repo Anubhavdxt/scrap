@@ -140,4 +140,29 @@ public enum Formatting {
         return TextEdit(range: NSRange(location: contentsEnd, length: 0), replacement: insertion,
                         selection: NSRange(location: contentsEnd + (insertion as NSString).length, length: 0))
     }
+
+    // MARK: Inserting symbols
+
+    /// Replaces the selection with `text` and puts the cursor after it.
+    public static func insertText(_ text: String, in source: String, selection: NSRange) -> TextEdit {
+        TextEdit(range: selection, replacement: text, selection: NSRange(location: selection.location + (text as NSString).length, length: 0))
+    }
+
+    /// Puts `divider` on a line of its own below the cursor's line (or on the cursor's line if that is empty), with the
+    /// cursor on the line after it. A line break that is already there is reused, so no blank line is left behind.
+    public static func insertDividerLine(_ divider: String, in text: String, selection: NSRange) -> TextEdit {
+        let ns = text as NSString
+        var start = 0, end = 0, contentsEnd = 0
+        ns.getLineStart(&start, end: &end, contentsEnd: &contentsEnd, for: NSRange(location: min(selection.location, ns.length), length: 0))
+        let line = ns.substring(with: NSRange(location: start, length: contentsEnd - start))
+        let length = (divider as NSString).length
+        let hasNextLine = contentsEnd < ns.length   // the cursor's line is followed by a line break
+        if line.trimmingCharacters(in: .whitespaces).isEmpty {
+            return TextEdit(range: NSRange(location: start, length: contentsEnd - start), replacement: divider + (hasNextLine ? "" : "\n"),
+                            selection: NSRange(location: start + length + 1, length: 0))
+        }
+        let insertion = "\n" + divider + (hasNextLine ? "" : "\n")
+        return TextEdit(range: NSRange(location: contentsEnd, length: 0), replacement: insertion,
+                        selection: NSRange(location: contentsEnd + 1 + length + 1, length: 0))
+    }
 }

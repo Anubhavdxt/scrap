@@ -2,12 +2,14 @@ import Foundation
 
 /// The bullet, task box or number at the start of a list item, with the layout facts the editor needs to draw it.
 public struct ListMarker: Equatable {
-    public enum Kind: Equatable { case bullet, taskOpen, taskDone, number }
+    public enum Kind: Equatable { case bullet, taskOpen, taskDone, number, smartOpen, smartDone }
     public var kind: Kind
     /// Width of the leading indentation in character cells (a tab counts as 4).
     public var indentColumns: Int
     /// Characters in the marker, including the spaces after it (for example `- [ ] ` is 6).
     public var columns: Int
+    /// For smart bullets: the length of the bullet character itself (an emoji is two UTF-16 units).
+    public var glyphLength = 1
 }
 
 public struct Span: Equatable {
@@ -121,6 +123,21 @@ public enum MarkdownHighlighter {
             return
         }
         var start = 0
+        if let smart = SmartBullets.marker(in: line) {
+            // A Tot-style smart bullet: a real character, clickable, with a done form.
+            let indent = ns.substring(to: smart.indentLength)
+            let region = NSRange(location: smart.indentLength, length: smart.length)
+            let columns = indent.reduce(0) { $0 + ($1 == "\t" ? 4 : 1) }
+            spans.append(Span(range: shift(region), token: .number,
+                              marker: ListMarker(kind: smart.isDone ? .smartDone : .smartOpen, indentColumns: columns,
+                                                 columns: region.length, glyphLength: smart.glyphLength)))
+            start = region.upperBound
+            if smart.isDone, start < ns.length {
+                spans.append(Span(range: shift(NSRange(location: start, length: ns.length - start)), token: .comment, strike: true))
+            }
+            inline(line, from: start, base: base, emphasis: true, into: &spans)
+            return
+        }
         if let m = listItem.firstMatch(in: line, range: whole) {
             let indent = ns.substring(with: m.range(at: 1))
             let bulletRange = m.range(at: 2)

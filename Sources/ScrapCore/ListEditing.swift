@@ -35,6 +35,7 @@ public enum ListEditing {
         guard selection.length == 0 else { return nil }
         let ns = text as NSString
         let line = line(at: selection.location, in: ns)
+        if continueLists, let smart = smartBulletReturn(line, caret: selection.location) { return smart }
         guard continueLists, let m = line.match else {
             return keepIndent ? indentOnly(line, caret: selection.location) : nil
         }
@@ -107,6 +108,23 @@ public enum ListEditing {
         return changed ? (out, end) : nil
     }
 
+    /// Return on a smart bullet line: the next line starts with the open form of the same bullet; an empty one ends the list.
+    private static func smartBulletReturn(_ line: Line, caret: Int) -> TextEdit? {
+        guard let marker = SmartBullets.marker(in: line.text) else { return nil }
+        let column = caret - line.range.location
+        let markerEnd = marker.indentLength + marker.length
+        guard column >= markerEnd else { return nil } // the caret is inside the bullet
+        let lineNS = line.text as NSString
+        let content = lineNS.substring(from: markerEnd).trimmingCharacters(in: .whitespaces)
+        if content.isEmpty {
+            return TextEdit(range: line.range, replacement: "", selection: NSRange(location: line.range.location, length: 0))
+        }
+        let indent = lineNS.substring(to: marker.indentLength)
+        let insertion = "\n" + indent + SmartBullets.pairs[marker.pair].open + (marker.spacing.isEmpty ? " " : marker.spacing)
+        return TextEdit(range: NSRange(location: caret, length: 0), replacement: insertion,
+                        selection: NSRange(location: caret + (insertion as NSString).length, length: 0))
+    }
+
     /// Return on a plain line that starts with spaces or tabs: start the next line at the same indentation.
     /// On a line that is only indentation, clear it instead (the way out of an indented block).
     private static func indentOnly(_ line: Line, caret: Int) -> TextEdit? {
@@ -130,6 +148,10 @@ public enum ListEditing {
         guard selection.length == 0 else { return nil }
         let ns = text as NSString
         let line = line(at: selection.location, in: ns)
+        if let smart = SmartBullets.marker(in: line.text), selection.location == line.range.location + smart.indentLength + smart.length {
+            let range = NSRange(location: line.range.location + smart.indentLength, length: smart.length)
+            return TextEdit(range: range, replacement: "", selection: NSRange(location: range.location, length: 0))
+        }
         guard let m = line.match, selection.location == line.range.location + m.range.length else { return nil }
         let lineNS = line.text as NSString
         let bullet = lineNS.substring(with: m.range(at: 2))
@@ -159,6 +181,7 @@ public enum ListEditing {
             let content = ns.substring(with: lineRange)
             let terminator = ns.substring(with: NSRange(location: lineRange.upperBound, length: enclosing.upperBound - lineRange.upperBound))
             let isList = marker.firstMatch(in: content, range: NSRange(location: 0, length: (content as NSString).length)) != nil
+                || SmartBullets.marker(in: content) != nil
             lines.append((content, terminator, isList))
         }
         guard !lines.isEmpty, lines.contains(where: \.isList), lines.allSatisfy({ $0.isList || $0.text.trimmingCharacters(in: .whitespaces).isEmpty }) else { return nil }
@@ -200,6 +223,7 @@ public enum ListEditing {
 
     /// Toggle a task checkbox on the cursor's line; turns a bullet or plain line into a task.
     public static func toggleChecklist(in text: String, selection: NSRange) -> TextEdit? {
+        if let smart = SmartBullets.toggle(in: text, at: selection.location) { return smart }
         let ns = text as NSString
         let line = line(at: selection.location, in: ns)
         let base = line.range.location
@@ -248,5 +272,35 @@ public enum ListEditing {
         let shift = (s as NSString).length
         let cursor = selection.location >= location ? selection.location + shift : selection.location
         return TextEdit(range: NSRange(location: location, length: 0), replacement: s, selection: NSRange(location: cursor, length: 0))
+    }
+
+    /// Puts smart bullet `pair` (its open form) at the start of the cursor's line: it replaces a smart bullet or a
+    /// Markdown list marker already there, otherwise it goes in front of the text, after any indentation.
+    public static func insertSmartBullet(_ pair: Int, in text: String, selection: NSRange) -> TextEdit? {
+        guard SmartBullets.pairs.indices.contains(pair) else { return nil }
+        let ns = text as NSString
+        let line = line(at: selection.location, in: ns)
+        let base = line.range.location
+        let glyph = SmartBullets.pairs[pair].open
+        let glyphLength = (glyph as NSString).length
+
+        let range: NSRange, replacement: String
+        if let smart = SmartBullets.marker(in: line.text) {
+            range = NSRange(location: base + smart.indentLength, length: smart.glyphLength)
+            replacement = glyph
+        } else if let m = line.match {
+            // `- `, `1. ` or `- [ ] ` becomes the bullet and one space.
+            let start = m.range(at: 2).location
+            range = NSRange(location: base + start, length: m.range.upperBound - start)
+            replacement = glyph + " "
+        } else {
+            let indent = (String(line.text.prefix { $0 == " " || $0 == "\t" }) as NSString).length
+            range = NSRange(location: base + indent, length: 0)
+            replacement = glyph + " "
+        }
+        let delta = (replacement as NSString).length - range.length
+        let caret = selection.location >= range.upperBound ? selection.location + delta
+                  : selection.location > range.location ? range.location + glyphLength + (replacement == glyph ? 0 : 1) : selection.location
+        return TextEdit(range: range, replacement: replacement, selection: NSRange(location: max(0, caret), length: 0))
     }
 }
