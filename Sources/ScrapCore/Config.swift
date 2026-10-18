@@ -22,6 +22,11 @@ public enum Config {
     public struct File: Codable, Equatable {
         public var folder: String?
         public var pads: Int?
+
+        public init(folder: String? = nil, pads: Int? = nil) {
+            self.folder = folder
+            self.pads = pads
+        }
     }
 
     public static func configURL(home: URL = Config.home) -> URL {
