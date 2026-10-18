@@ -31,6 +31,8 @@ struct SettingsView: View {
     @AppStorage("markers") private var markers = "hide"
     @AppStorage("autoList") private var autoList = true
     @AppStorage("keepIndent") private var keepIndent = true
+    @AppStorage("tintMenuBar") private var tintMenuBar = true
+    @AppStorage("escCloses") private var escCloses = true
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.appearance.rawValue
@@ -170,6 +172,13 @@ struct SettingsView: View {
                 .toggleStyle(.checkbox)
             }
             note("Lists: bullets, numbers and tasks. Indentation applies to any line that starts with spaces or tabs.")
+            row("Window") {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Escape closes the window", isOn: $escCloses)
+                    Toggle("Tint the menu bar icon with the pad colour", isOn: $tintMenuBar)
+                }
+                .toggleStyle(.checkbox)
+            }
             row("Startup") {
                 Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
                     .toggleStyle(.checkbox)

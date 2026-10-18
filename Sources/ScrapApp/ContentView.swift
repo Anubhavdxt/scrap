@@ -10,8 +10,9 @@ enum Appearance: String, CaseIterable, Identifiable {
 
 /// Each pad has its own colour, repeating after seven.
 enum PadColors {
-    static let palette: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink]
-    static func color(for number: Int) -> Color { palette[(number - 1) % palette.count] }
+    static let palette: [NSColor] = [.systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple, .systemPink]
+    static func nsColor(for number: Int) -> NSColor { palette[(max(number, 1) - 1) % palette.count] }
+    static func color(for number: Int) -> Color { Color(nsColor: nsColor(for: number)) }
 }
 
 func resolveTheme(family: String, appearance: Appearance, colorScheme: ColorScheme) -> Theme {
@@ -169,22 +170,81 @@ struct StatusLine: View {
         return "\(lines) \(lines == 1 ? "line" : "lines") · \(words) \(words == 1 ? "word" : "words") · \(text.count) characters"
     }
 
+    /// When the current pad's file was last written, if it has been.
+    private var savedAt: Date? {
+        guard let date = model.pads.first(where: { $0.number == model.pad.number })?.modified, date > .distantPast else { return nil }
+        return date
+    }
+
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Circle().fill(PadColors.color(for: model.pad.number)).frame(width: 8, height: 8)
-            if let error = model.error {
-                Text(error).foregroundStyle(.red).lineLimit(1)
-            } else if let notice = model.notice {
-                Text(notice).foregroundStyle(.orange).lineLimit(1)
-            } else {
-                Text(stats)
+            ViewThatFits(in: .horizontal) {
+                message(showSaved: true)
+                message(showSaved: false)
             }
-            Spacer()
+            Spacer(minLength: 4)
+            FooterButtons(model: model)
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
-        .frame(height: 24)
+        .frame(height: 26)
+    }
+
+    @ViewBuilder private func message(showSaved: Bool) -> some View {
+        if let error = model.error {
+            Text(error).foregroundStyle(.red).lineLimit(1)
+        } else if let notice = model.notice {
+            Text(notice).foregroundStyle(.orange).lineLimit(1)
+        } else {
+            HStack(spacing: 8) {
+                Text(stats).lineLimit(1).fixedSize()
+                if showSaved, let savedAt {
+                    // Re-evaluated every 20 seconds so "just now" ages into "1 min ago".
+                    TimelineView(.periodic(from: .now, by: 20)) { context in
+                        Text("Saved \(RelativeTime.text(for: savedAt, now: context.date))").lineLimit(1).fixedSize()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Format menu, task and share buttons at the right of the footer (the same commands as the keyboard shortcuts).
+struct FooterButtons: View {
+    @ObservedObject var model: EditorModel
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Button { run(.task) } label: { Image(systemName: "checklist") }
+                .help("Make this line a task (⌃8)")
+            Menu {
+                Button("Bold  ⌘B") { run(.bold) }
+                Button("Italic  ⌘I") { run(.italic) }
+                Button("Strikethrough  ⇧⌘X") { run(.strikethrough) }
+                Button("Code  ⌘E") { run(.code) }
+                Divider()
+                Button("Divider  ⌃−") { run(.divider) }
+                Button("Check or uncheck task  ⌘↩") { run(.checkbox) }
+            } label: {
+                Image(systemName: "textformat")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Format")
+            ShareLink(item: model.text) { Image(systemName: "square.and.arrow.up") }
+                .disabled(model.text.isEmpty)
+                .help("Share this pad")
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 12))
+    }
+
+    private func run(_ command: EditorCommand) {
+        command.post()
+        DispatchQueue.main.async { NotificationCenter.default.post(name: .focusEditor, object: nil) }
     }
 }
 

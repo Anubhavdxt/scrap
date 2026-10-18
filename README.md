@@ -47,6 +47,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Links | URLs you paste or type, and `[text](url)` links, are underlined in the accent colour; `⌘`-click opens them |
 | Lists and tasks | `Return` continues a list (an empty item ends it) and keeps indentation, `Tab` / `⇧Tab` indent, `⌃8` makes or unmakes a task, `⌘Return` checks or unchecks it |
 | Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
+| Footer | the pad's line, word and character counts, when it was last saved, and buttons for tasks, formatting and sharing |
 | Settings | the gear, `⌘,`, or right-click the menu bar icon |
 
 Settings has the shortcut recorder, pad count and folder, launch at login, theme, and the opening window size in columns × rows, like a terminal.

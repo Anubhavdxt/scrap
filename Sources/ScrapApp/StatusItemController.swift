@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 extension Notification.Name {
@@ -28,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let popover = NSPopover()
     private let settingsPopover = NSPopover()
     private var monitors: [Any] = []
+    private var padObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -51,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         center.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.applyLayout() }
+            MainActor.assumeIsolated { self?.applyLayout(); self?.updateStatusImage() }
         }
         center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.closeAll() }
@@ -64,7 +66,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = Self.menuBarImage()
+        statusItem = item
+        updateStatusImage()
+        // The icon follows the current pad's colour (Settings > General can turn that off).
+        padObserver = model.$pad.sink { [weak self] _ in self?.updateStatusImage() }
         item.button?.target = self
         item.button?.action = #selector(clicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -73,6 +78,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hotKeys = HotKeyManager.shared
         hotKeys.action = { [weak self] in self?.toggle() }
         hotKeys.start()
+    }
+
+    /// The menu bar icon: the logo tinted with the current pad's colour, or the plain template image.
+    private func updateStatusImage() {
+        let tint = UserDefaults.standard.object(forKey: "tintMenuBar") as? Bool ?? true
+        let base = Self.menuBarImage()
+        statusItem?.button?.image = tint && base.isTemplate ? StatusIcon.tinted(base, with: PadColors.nsColor(for: EditorModel.shared.pad.number)) : base
     }
 
     /// The scrap logo as a template image (macOS tints it). Falls back to a symbol outside an app bundle.
@@ -197,7 +209,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
                 let model = EditorModel.shared
                 if model.showPalette || model.showClear || model.showSayHi { return event }
-                if self.settingsPopover.isShown { self.settingsPopover.performClose(nil) } else { self.closeAll() }
+                if self.settingsPopover.isShown { self.settingsPopover.performClose(nil); return nil }
+                // "Escape closes window" can be turned off in Settings > General.
+                guard UserDefaults.standard.object(forKey: "escCloses") as? Bool ?? true else { return event }
+                self.closeAll()
                 return nil
             }
         }) { monitors.append(local) }
