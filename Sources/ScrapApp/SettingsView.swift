@@ -335,7 +335,7 @@ struct SettingsView: View {
             row("Show or hide") { ShortcutRecorder(accent: accent, dim: dim) }
             if let error = hotkeys.error { note(error).foregroundStyle(.red) }
             note("Click the shortcut, then press the new keys. Use at least one of ⌃ ⌥ ⌘.")
-            row("Quick switch") { key("⌘K") }
+            row("Search all pads") { key("⌘K or ⌘F") }
             row("Go to pad 1–9") { key("⌘1 – ⌘9") }
             row("Clear pad") { key("⇧⌘⌫") }
             row("Settings") { key("⌘,") }

@@ -39,7 +39,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | | |
 |---|---|
 | Show or hide | `⌃⌥Space` (changeable in Settings) |
-| Quick switch · pad 1–9 | `⌘K` · `⌘1` – `⌘9` |
+| Search all pads · pad 1–9 | `⌘K` or `⌘F` · `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
 | Bold · italic · strikethrough · code | `⌘B` · `⌘I` · `⇧⌘X` · `⌘E` |
 | Divider · make task · check | `⌃-` · `⌃8` · `⌘↩` |

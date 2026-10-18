@@ -11,6 +11,7 @@ extension Notification.Name {
     static let toggleDetach = Notification.Name("scrap.toggleDetach")
     static let insertSymbol = Notification.Name("scrap.insertSymbol")
     static let toggleSymbols = Notification.Name("scrap.toggleSymbols")
+    static let revealRange = Notification.Name("scrap.revealRange")
     static let closeSymbols = Notification.Name("scrap.closeSymbols")
 }
 
@@ -370,7 +371,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
                 let model = EditorModel.shared
                 if self.symbolPopover.isShown { self.symbolPopover.performClose(nil); return nil }
-                if model.showPalette || model.showClear || model.showSayHi { return event }
+                if model.showSearch || model.showClear || model.showSayHi { return event }
                 if self.settingsPopover.isShown { self.settingsPopover.performClose(nil); return nil }
                 let editorKey = self.policy.usesWindow ? self.windowController.isKey : self.popover.isShown
                 guard editorKey else { return event }

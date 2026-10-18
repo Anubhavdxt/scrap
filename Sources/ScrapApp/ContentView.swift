@@ -54,7 +54,7 @@ struct ContentView: View {
         .ignoresSafeArea(.container, edges: windowed ? .top : [])
         .background { shortcuts }
         .overlay { overlays }
-        .onChange(of: model.showPalette) { _, open in if !open { refocus() } }
+        .onChange(of: model.showSearch) { _, open in if !open { refocus() } }
         .onChange(of: model.showClear) { _, open in if !open { refocus() } }
         .onChange(of: model.showSayHi) { _, open in if !open { refocus() } }
     }
@@ -76,7 +76,8 @@ struct ContentView: View {
     /// Hidden buttons carry the keyboard shortcuts; the popover has no menu bar of its own.
     private var shortcuts: some View {
         Group {
-            Button("Quick Switch") { model.showPalette = true }.keyboardShortcut("k")
+            Button("Search") { model.showSearch = true }.keyboardShortcut("k")
+            Button("Find") { model.showSearch = true }.keyboardShortcut("f")
             ForEach(1...min(model.padCount, 9), id: \.self) { n in
                 Button("Pad \(n)") { model.open(number: n) }
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
@@ -90,10 +91,10 @@ struct ContentView: View {
 
     @ViewBuilder private var overlays: some View {
         if model.showSayHi { SayHiView(model: model, theme: theme) }
-        if model.showPalette {
+        if model.showSearch {
             ZStack {
-                Color.black.opacity(0.3).onTapGesture { model.showPalette = false }
-                PaletteView(model: model)
+                Color.black.opacity(0.3).onTapGesture { model.showSearch = false }
+                SearchView(model: model)
                     .background(.regularMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .shadow(radius: 12)

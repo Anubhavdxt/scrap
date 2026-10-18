@@ -92,12 +92,3 @@ final class PadStoreTests: XCTestCase {
         XCTAssertEqual(Config.padCount(home: home), 7)
     }
 }
-
-final class FuzzyTests: XCTestCase {
-    func testMatchingAndRanking() {
-        XCTAssertNil(Fuzzy.score("xyz", in: "meeting notes"))
-        XCTAssertNotNil(Fuzzy.score("mn", in: "meeting notes"))
-        XCTAssertEqual(Fuzzy.rank("note", ["random n o t e", "notes", "my notes"], by: { $0 }).first, "notes")
-        XCTAssertEqual(Fuzzy.rank("", ["b", "a"], by: { $0 }), ["b", "a"])
-    }
-}
