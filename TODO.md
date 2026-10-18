@@ -26,6 +26,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] Decided against bundling highlight.js (measured: +73 KB, +6 MB RAM when used, slower than the Swift lexers, vendored JS to maintain). Improve the Swift lexers instead if any language's colours look worse than the portfolio
 - [x] From Tot's settings: menu bar icon tinted with the pad's colour, "Esc closes window" toggle, footer with task/format/share buttons and a "saved just now" indicator
 - [x] Hotkey opens the detached window at the pointer
+- [x] `scrap://` links: open a pad, add text (never read)
 - [ ] More from Tot's settings: "show pad number", custom bullets, vibrant background, alternate app icons
 - [x] Font size (⌘+ ⌘− ⌘0), font family picker, line wrapping toggle
 - [x] List helpers: Return continues lists, Tab indents, ⌘Return toggles checkboxes

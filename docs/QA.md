@@ -61,6 +61,12 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] ⇧⌘⌫ clears the pad after a confirmation (and Esc cancels it)
 - [ ] Changing the pad count in Settings hides and restores pads without losing text
 
+## Links
+- [ ] With scrap running, `open "scrap://add?text=hello%20world&pad=2"` puts the text in pad 2 and the footer says "Added to pad 2 from a link"; without `pad` it goes where `scrap add` would; text you were typing in the open pad is kept and the addition follows it
+- [ ] `open "scrap://open?pad=3"` brings scrap up on pad 3; `scrap://read?...`, a bad pad, an empty or oversized text are ignored with an "Ignored a scrap:// link" notice and change nothing
+- [ ] Settings > General > "Let scrap:// links add text to my pads" off: an add is refused with a notice (opening still works)
+- [ ] The bookmarklet in the README sends the current page to scrap (the browser asks before opening the link)
+
 ## Settings
 - [ ] The gear opens an attached settings popover and both stay open together
 - [ ] Clicking in the editor closes settings only; clicking outside closes both; Esc closes settings first, then the editor
