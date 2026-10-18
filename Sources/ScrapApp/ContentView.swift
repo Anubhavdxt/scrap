@@ -31,6 +31,7 @@ struct ContentView: View {
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("markers") private var markers = "hide"
     @AppStorage("tintFooter") private var tintFooter = true
+    @AppStorage("customBullets") private var customBullets = ""
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scrapWindowed) private var windowed
 
@@ -43,7 +44,7 @@ struct ContentView: View {
             Divider()
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
                        colorHighlights: colorHighlights, markers: markers, rendered: rendered,
-                       selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection)
+                       selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection, customBullets: customBullets)
             Divider()
             StatusLine(model: model)
                 .background(footerBackground)

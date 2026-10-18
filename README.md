@@ -4,11 +4,12 @@
 
 A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of pads (7 by default), plain Markdown files, keyboard-first, themeable. Inspired by Tot, with no paid tier.
 
-- **Pads:** numbered colour dots at the top, `⌘1`–`⌘9` to jump, `⌘K` to search, `⇧⌘⌫` to clear
-- **Plain files:** pads are `1.md` … `N.md` in a folder you control, iCloud Drive by default
-- **Markdown:** headings, emphasis, links and fenced code are highlighted, with per-language colours for Swift, JS/TS, Python, shell, JSON, SQL, Go, Rust, C/C++, Java/Kotlin, Ruby, HTML/XML, CSS, YAML, TOML/INI, diff and Dockerfile/Makefile (other languages get a generic lexer)
-- **Themes:** 9 editor themes, each in dark and light
-- **CLI:** `scrap add "buy milk"`, `pbpaste | scrap add -p 2`, `scrap show 2`, `scrap list`, `scrap link`
+- **Pads:** numbered colour dots at the top; switch with `⌘1`–`⌘9` or search with `⌘K`. Pads are `1.md` … `N.md` in a folder you choose, iCloud Drive by default
+- **Live Markdown:** styled as you type, and the `#`, `**` and backticks hide away from the line you're editing. 9 themes in dark and light, and per-language colours in code blocks
+- **Raw view:** `⌥⌘R` shows the same colours with every mark visible
+- **Bullets and tasks:** `- [ ]` tasks and smart bullets (○ ● □ ■ ▷ ▶ ☆ ★ and more, plus your own) flip between open and done when you click them
+- **Menu bar, Dock or both:** a popover, or a resizable window you can pin above other windows
+- **CLI:** `scrap add "buy milk"`, `pbpaste | scrap add -p 2`, `scrap show 2`, `scrap list`
 - **Sync-safe:** if sync leaves a conflicting copy of a pad, both versions are kept
 
 Requires macOS 14 or later.
@@ -37,26 +38,22 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 
 | | |
 |---|---|
-| Show or hide | `⌃⌥Space` (changeable in Settings), or click the menu bar icon |
-| Quick switch | `⌘K` |
-| Go to pad 1–9 | `⌘1` – `⌘9` |
+| Show or hide | `⌃⌥Space` (changeable in Settings) |
+| Quick switch · pad 1–9 | `⌘K` · `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
-| Format | `⌘B` bold, `⌘I` italic, `⇧⌘X` strikethrough, `⌘E` code, `⌃-` divider (all toggle; they wrap the selection or the word at the cursor) |
-| Rendered or raw | The eye button in the footer (or `⌥⌘R`, View menu) switches between the rendered view and the raw file: the same colours and styling, monospaced, with every Markdown mark (`#`, `**`, backticks, `- [ ]`) left visible instead of hidden or drawn as an icon. Rendered text uses the proportional system font by default (Settings > Appearance > Font); code stays monospaced |
-| Styling | Markdown is styled as you type: real bold, italic and ~~strikethrough~~, sized headings, `code` chips, code-block panels (no backticks, the language at the top right) and quote bars. The `**`, `#`, backticks and `[ ]` marks hide except on the line you're editing (Settings: hide, dim or show), and Colour highlights can be turned off |
-| Smart bullets | Tot-style bullets that are real characters in the text: ○ ● □ ■ ▷ ▶ ☆ ★ – ➕ − ✓ ❌ ✅ ⭕ 🔴. Click one to flip it between open and done (done items dim and strike through). Return continues the list, an empty one ends it, Backspace removes the bullet, and ⌘Return flips it too. Text pasted from Tot works as is |
-| Symbols | The `*` button in the footer opens a picker below the window (so it never covers your note): smart bullets, dividers, bullets, checkmarks, arrows, numbers, key symbols and more |
-| Tasks | `- [ ]` items are drawn as clickable circles: click to check, and done tasks dim and strike through. Bullets are drawn as dots. The file stays plain Markdown |
-| Links | URLs you paste or type, and `[text](url)` links, are underlined in the accent colour; `⌘`-click opens them |
-| Lists and tasks | `Return` continues a list (an empty item ends it) and keeps indentation, `Tab` / `⇧Tab` indent, `⌃8` makes or unmakes a task, `⌘Return` checks or unchecks it |
-| Font size | `⌘+` / `⌘−`, `⌘0` resets (also in Settings, with font family and line wrapping) |
-| Window | The pin in the top bar turns the popover into a normal resizable window (and back); Settings can show scrap in the menu bar, the Dock, or both, and keep the window above other windows |
-| Pad dots | A solid disc with a halo is the open pad, a ring with a dot in the middle has text, a thin faint ring is empty. The footer takes a tint of the open pad's colour (Settings can turn that off) |
-| Pointer | With *The hotkey opens the window at the pointer* (Settings > General), the hotkey brings the window up under your mouse, on whichever screen it is, instead of where it was |
-| Footer | the pad's line, word and character counts, when it was last saved, and buttons for tasks, formatting and sharing |
-| Settings | the gear, `⌘,`, or right-click the menu bar icon |
+| Bold · italic · strikethrough · code | `⌘B` · `⌘I` · `⇧⌘X` · `⌘E` |
+| Divider · make task · check | `⌃-` · `⌃8` · `⌘↩` |
+| Raw or rendered | `⌥⌘R` |
+| Font size | `⌘+` · `⌘−` · `⌘0` |
+| Settings | `⌘,` |
 
-Settings has the shortcut recorder, pad count and folder, launch at login, theme, and the opening window size in columns × rows, like a terminal.
+A few things worth knowing:
+
+- Return continues a list (an empty item ends it) and keeps indentation; Tab and Shift-Tab indent.
+- Click a smart bullet or a task circle to flip it; ⌘Return does it from the keyboard. The `*` button in the footer opens a picker of bullets, dividers, arrows and symbols below the window.
+- URLs and `[text](url)` links are underlined; ⌘-click opens them.
+- The pin in the top bar turns the popover into a window. The footer tints with the open pad's colour, and shows counts for what you've selected.
+- Settings covers the shortcut, pad count and folder, theme, fonts, window size (in columns × rows), what shows in the menu bar and Dock, and launch at login.
 
 ## Configuration
 
