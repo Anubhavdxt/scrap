@@ -25,6 +25,15 @@ struct PadDotStyle: Equatable {
     }
 }
 
+extension PadDotStyle {
+    /// Black or white, whichever reads better on the open pad's solid disc.
+    static func numberColor(on fill: NSColor) -> NSColor {
+        guard let c = fill.usingColorSpace(.sRGB) else { return .white }
+        let luminance = 0.299 * c.redComponent + 0.587 * c.greenComponent + 0.114 * c.blueComponent
+        return luminance > 0.6 ? NSColor.black.withAlphaComponent(0.75) : .white
+    }
+}
+
 /// The footer's background: the theme's own, with a little of the open pad's colour in it.
 enum FooterTint {
     /// A straight mix in sRGB: `strength` 0 is the background, 1 is the pad colour.

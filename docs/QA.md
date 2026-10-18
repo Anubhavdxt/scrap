@@ -87,3 +87,6 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] The CLI and the app agree on the folder and pad count (`~/.config/scrap/config.json`)
 - [ ] Two Macs: edit the same pad on both while offline, then reconnect. A `3 2.md` style copy is merged into the pad under a
       "conflicting version from sync" line, the copy moves to `.conflicts/`, and a notice shows. (Not yet verified on real iCloud.)
+
+- [ ] Settings > Appearance > App icon: picking one changes the Dock icon at once; Cobalt restores the original
+- [ ] Settings > Window > "Show the pad number in its dot": digits readable in every dot, current dot included (two digits for pad 10+)
