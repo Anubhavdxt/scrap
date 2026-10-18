@@ -60,12 +60,7 @@ struct SearchView: View {
     private func row(_ hit: SearchHit, selected: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Circle().fill(PadColors.color(for: hit.pad)).frame(width: 8, height: 8).padding(.top, 5).help("Pad \(hit.pad)")
-            VStack(alignment: .leading, spacing: 2) {
-                Text(highlighted(hit)).lineLimit(1)
-                if !hit.context.isEmpty {
-                    Text(hit.context).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
+            Text(highlighted(hit)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
         .font(.system(size: 13))
