@@ -240,7 +240,7 @@ struct StatusLine: View {
                     Rectangle().fill(.secondary.opacity(0.35)).frame(width: 1, height: 12)
                     // Re-evaluated every 20 seconds so "just now" ages into "1 min ago".
                     TimelineView(.periodic(from: .now, by: 20)) { context in
-                        Text("Saved \(RelativeTime.text(for: savedAt, now: context.date))").lineLimit(1).fixedSize()
+                        Text(RelativeTime.sentence(for: savedAt, now: context.date)).lineLimit(1).fixedSize()
                     }
                 }
             }
@@ -258,7 +258,7 @@ struct FooterButtons: View {
             Button { run(.task) } label: { Image(systemName: "checklist") }
                 .help("Make this line a task (⌃8)")
             Button { rendered.toggle() } label: { Image(systemName: rendered ? "eye" : "eye.slash") }
-                .help(rendered ? "Show raw Markdown (⌥⌘R)" : "Show rendered text (⌥⌘R)")
+                .help(rendered ? "Show raw Markdown, with all the marks visible (⌥⌘R)" : "Show rendered text (⌥⌘R)")
             Menu {
                 Button("Bold  ⌘B") { run(.bold) }
                 Button("Italic  ⌘I") { run(.italic) }

@@ -42,7 +42,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 | Go to pad 1–9 | `⌘1` – `⌘9` |
 | Clear pad | `⇧⌘⌫` |
 | Format | `⌘B` bold, `⌘I` italic, `⇧⌘X` strikethrough, `⌘E` code, `⌃-` divider (all toggle; they wrap the selection or the word at the cursor) |
-| Rendered or raw | The eye button in the footer (or `⌥⌘R`, View menu) switches between the rendered view and the raw file: plain monospaced text with every marker visible. Rendered text uses the proportional system font by default (Settings > Appearance > Font); code stays monospaced |
+| Rendered or raw | The eye button in the footer (or `⌥⌘R`, View menu) switches between the rendered view and the raw file: the same colours and styling, monospaced, with every Markdown mark (`#`, `**`, backticks, `- [ ]`) left visible instead of hidden or drawn as an icon. Rendered text uses the proportional system font by default (Settings > Appearance > Font); code stays monospaced |
 | Styling | Markdown is styled as you type: real bold, italic and ~~strikethrough~~, sized headings, `code` chips, code-block panels and quote bars. The `**`, `#`, backticks and `[ ]` marks hide except on the line you're editing (Settings: hide, dim or show), and Colour highlights can be turned off |
 | Tasks | `- [ ]` items are drawn as clickable circles: click to check, and done tasks dim and strike through. Bullets are drawn as dots. The file stays plain Markdown |
 | Links | URLs you paste or type, and `[text](url)` links, are underlined in the accent colour; `⌘`-click opens them |
