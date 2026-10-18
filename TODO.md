@@ -41,6 +41,13 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] Per-language highlighting for fenced code (`CodeLanguage`, 18 language families; unknown languages use a generic lexer)
 - [x] Tests for the app target (EditorModel, 15 tests) and a manual QA checklist (`docs/QA.md`)
 
+## Next (after v0.2.0)
+- [x] Search results show the text around each match (not just a pad label)
+- [ ] Performance profile: RSS (idle 113 MB at v0.2.0), CPU while typing, startup, large pads; then lazy views/caches, search text cache, highlight only changed paragraphs, `-Osize`; CI benchmark with a budget
+- [ ] README demo GIF, screenshots, repo topics/description, comparison line, CONTRIBUTING + issue templates, "good first issue" labels
+- [ ] Prebuilt notarized .zip (needs a paid Apple Developer account: decide)
+- [ ] Launch posts (owner): Show HN, r/macapps, r/swift, r/opensource, Product Hunt, awesome-macos lists
+
 ## Housekeeping
 - [ ] Verify conflict handling on two real Macs (iCloud's conflict file naming is assumed, see ConflictResolver)
 - [ ] Add a bypass for the repo owner to the `protect-main` ruleset (owner does this in Settings)
