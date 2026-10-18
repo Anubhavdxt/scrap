@@ -89,7 +89,9 @@ public enum MarkdownHighlighter {
     private static let rule = try! NSRegularExpression(pattern: "^ {0,3}(?:(?:-\\s*){3,}|(?:\\*\\s*){3,}|(?:_\\s*){3,})$")
     private static let inlineCode = try! NSRegularExpression(pattern: "(`+)(?:(?!\\1).)+?\\1")
     private static let bold = try! NSRegularExpression(pattern: "(\\*\\*|__)(?=\\S)(.+?)(?<=\\S)\\1")
-    private static let italic = try! NSRegularExpression(pattern: "(?<![*\\w])(\\*|_)(?=[^\\s*_])(.+?)(?<=[^\\s*_])\\1(?![*\\w])")
+    private static let boldItalic = try! NSRegularExpression(pattern: "(\\*\\*\\*|___)(?=\\S)(.+?)(?<=\\S)\\1")
+    private static let italicStar = try! NSRegularExpression(pattern: "(?<!\\*)\\*(?=[^\\s*])(.+?)(?<=[^\\s*])\\*(?!\\*)")
+    private static let italicUnderscore = try! NSRegularExpression(pattern: "(?<!\\w)_(?=[^\\s_])(.+?)(?<=[^\\s_])_(?!\\w)")
     private static let link = try! NSRegularExpression(pattern: "(!?)\\[([^\\]]*)\\]\\(([^)\\s]*)[^)]*\\)")
     private static let strike = try! NSRegularExpression(pattern: "(~~)(?=\\S)(.+?)(?<=\\S)\\1")
     private static let autolink = try! NSRegularExpression(pattern: #"<((?:https?://|mailto:)[^>\s]+)>|(?:https?://|www\.|mailto:)[^\s<>]+"#)
@@ -191,18 +193,27 @@ public enum MarkdownHighlighter {
             }
         }
         guard emphasis else { return }
-        scan(bold) { m in
-            spans.append(Span(range: shift(m.range), token: .keyword, bold: true))
-            syntaxSpans(m.range, open: 2, close: 2)
+
+        // `***both***` first, so the shorter forms don't take part of it.
+        for m in boldItalic.matches(in: line, range: rest) where free(m.range) {
+            spans.append(Span(range: shift(m.range), token: .keyword, bold: true, italic: true))
+            syntaxSpans(m.range, open: 3, close: 3)
+            taken.append(m.range)
         }
-        scan(strike) { m in
-            spans.append(Span(range: shift(m.range), token: .comment, strike: true))
-            syntaxSpans(m.range, open: 2, close: 2)
+        // Emphasis can nest (`**bold *both* bold**`, `_**x**_`), so the rest only keep out of code, links and triples,
+        // not out of each other.
+        let blocked = taken
+        func styled(_ re: NSRegularExpression, token: Token, bold: Bool = false, italic: Bool = false, strike: Bool = false, markerLength: Int) {
+            for m in re.matches(in: line, range: rest) where !blocked.contains(where: { NSIntersectionRange($0, m.range).length > 0 }) {
+                spans.append(Span(range: shift(m.range), token: token, bold: bold, italic: italic, strike: strike))
+                syntaxSpans(m.range, open: markerLength, close: markerLength)
+            }
         }
-        scan(italic) { m in
-            spans.append(Span(range: shift(m.range), token: .type, italic: true))
-            syntaxSpans(m.range, open: 1, close: 1)
-        }
+        // Italic before bold, so where they overlap the bold colour wins.
+        styled(italicStar, token: .type, italic: true, markerLength: 1)
+        styled(italicUnderscore, token: .type, italic: true, markerLength: 1)
+        styled(bold, token: .keyword, bold: true, markerLength: 2)
+        styled(strike, token: .comment, strike: true, markerLength: 2)
     }
 
     /// Adds a scheme to bare `www.` addresses.

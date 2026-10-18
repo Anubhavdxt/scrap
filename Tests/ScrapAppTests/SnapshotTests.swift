@@ -30,6 +30,8 @@ final class SnapshotTests: XCTestCase {
     ```
 
     **bold** and *italic* and ~~gone~~ and `code`
+
+    ***both*** and **bold *nested italic* bold** and *italic **nested bold** italic* and _**mixed**_
     """
 
     private func render(_ text: String, themeID: String, size: CGSize = CGSize(width: 560, height: 640)) -> NSBitmapImageRep? {
@@ -261,5 +263,64 @@ final class StylingPerformanceTests: XCTestCase {
         let t3 = Date()
         MarkdownStyler.apply(spans, to: storage, range: (text as NSString).paragraphRange(for: NSRange(location: 5000, length: 0)), reveal: NSRange(location: 5000, length: 0), style: style)
         XCTAssertLessThan(Date().timeIntervalSince(t3), 0.5, "restyling one paragraph filters the spans but touches only that paragraph")
+    }
+}
+
+/// Bold and italic together, as drawn by the real editor.
+@MainActor
+final class NestedEmphasisStyleTests: XCTestCase {
+    private func editor(_ text: String) -> NSTextView {
+        let theme = Themes.all.first { $0.id == "cobalt2-dark" }!
+        let view = NSHostingView(rootView: EditorView(text: .constant(text), theme: theme, fontSize: 14, fontFamily: "", wrap: true)
+            .frame(width: 520, height: 300))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        func find(_ v: NSView) -> NSTextView? { (v as? NSTextView) ?? v.subviews.lazy.compactMap(find).first }
+        let tv = find(view)!
+        tv.setSelectedRange(NSRange(location: (text as NSString).length, length: 0))
+        _ = window
+        return tv
+    }
+
+    private func traits(_ tv: NSTextView, at i: Int) -> NSFontDescriptor.SymbolicTraits {
+        (tv.textStorage?.attribute(.font, at: i, effectiveRange: nil) as? NSFont)?.fontDescriptor.symbolicTraits ?? []
+    }
+
+    func testTripleMarkersAreBoldAndItalic() {
+        let tv = editor("***both*** and\nplain")
+        let t = traits(tv, at: 4)
+        XCTAssertTrue(t.contains(.bold) && t.contains(.italic), "the word is bold and italic at once")
+        XCTAssertFalse(traits(tv, at: 16).contains(.bold))
+    }
+
+    func testItalicInsideBoldKeepsBothWeights() {
+        let tv = editor("**bold *both* bold** x\nplain")
+        XCTAssertTrue(traits(tv, at: 3).contains(.bold) && !traits(tv, at: 3).contains(.italic), "bold part is only bold")
+        let inner = traits(tv, at: 9)
+        XCTAssertTrue(inner.contains(.bold) && inner.contains(.italic), "the nested word is both")
+        XCTAssertTrue(traits(tv, at: 16).contains(.bold) && !traits(tv, at: 16).contains(.italic), "and back to bold after it")
+    }
+
+    func testBoldInsideItalicKeepsBothWeights() {
+        let tv = editor("*it **both** it* x\nplain")
+        XCTAssertTrue(traits(tv, at: 2).contains(.italic) && !traits(tv, at: 2).contains(.bold))
+        let inner = traits(tv, at: 8)
+        XCTAssertTrue(inner.contains(.bold) && inner.contains(.italic))
+    }
+
+    func testMixedMarkerStylesStack() {
+        for (source, index) in [("_**x**_ y\nz", 3), ("**_x_** y\nz", 3), ("*__x__* y\nz", 3)] {
+            let t = traits(editor(source), at: index)
+            XCTAssertTrue(t.contains(.bold) && t.contains(.italic), source)
+        }
+    }
+
+    func testHeadingsStillGetTheirSizeWhenEmphasisIsInside() {
+        let tv = editor("# Title\nplain")
+        let font = tv.textStorage?.attribute(.font, at: 3, effectiveRange: nil) as? NSFont
+        XCTAssertGreaterThan(font?.pointSize ?? 0, 14)
+        XCTAssertTrue(font?.fontDescriptor.symbolicTraits.contains(.bold) == true)
     }
 }
