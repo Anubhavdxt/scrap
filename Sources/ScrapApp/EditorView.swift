@@ -257,7 +257,9 @@ struct EditorView: NSViewRepresentable {
             container.widthTracksTextView = on
             if on {
                 tv.autoresizingMask = [.width]
-                container.containerSize = NSSize(width: scroll.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+                // The text view's width less its insets, as when it tracks the view; wider and the text (and code
+                // panels) ran under the right edge after any settings change.
+                container.containerSize = NSSize(width: max(0, scroll.contentSize.width - tv.textContainerInset.width * 2), height: CGFloat.greatestFiniteMagnitude)
                 tv.setFrameSize(NSSize(width: scroll.contentSize.width, height: tv.frame.height))
             } else {
                 container.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
