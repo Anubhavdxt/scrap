@@ -4,7 +4,10 @@
 
 A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of pads (7 by default), plain Markdown files, keyboard-first, themeable. Inspired by Tot, with no paid tier.
 
-- **Pads:** numbered colour dots at the top; switch with `⌘1`–`⌘9` or search with `⌘K`. Pads are `1.md` … `N.md` in a folder you choose, iCloud Drive by default
+<p align="center"><img src="docs/demo.gif" width="640" alt="Typing a note in scrap, then searching every pad"></p>
+
+- **Plain files:** pads are `1.md` … `N.md` in a folder you choose, iCloud Drive by default. No account, no lock-in, nothing to export
+- **Pads and search:** numbered colour dots at the top; switch with `⌘1`–`⌘9`, or search the text of every pad with `⌘K` (a typo still finds the word)
 - **Live Markdown:** styled as you type, and the `#`, `**` and backticks hide away from the line you're editing. 9 themes in dark and light, and per-language colours in code blocks
 - **Raw view:** `⌥⌘R` shows the same colours with every mark visible
 - **Bullets and tasks:** `- [ ]` tasks and smart bullets (○ ● □ ■ ▷ ▶ ☆ ★ and more, plus your own) flip between open and done when you click them
@@ -13,6 +16,12 @@ A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of
 - **Sync-safe:** if sync leaves a conflicting copy of a pad, both versions are kept
 
 Requires macOS 14 or later.
+
+<p align="center">
+  <img src="docs/screenshot-hero.png" width="32%" alt="Dark theme: headings, tasks and a code block">
+  <img src="docs/screenshot-search.png" width="32%" alt="Search across all pads, with a typo">
+  <img src="docs/screenshot-light.png" width="32%" alt="A light theme">
+</p>
 
 ## Install
 
@@ -84,6 +93,7 @@ Optional `~/.config/scrap/config.json`, shared by the app and the CLI:
     swift test
     make app && open build/Scrap.app
     make icons   # regenerate the logo assets from scripts/make_icon.swift
+    make demo    # regenerate the README screenshots and GIF (needs Pillow)
 
 Work happens on feature branches and is squash-merged by pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) and [TODO.md](TODO.md).
 
