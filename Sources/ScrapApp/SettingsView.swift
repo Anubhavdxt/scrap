@@ -33,6 +33,7 @@ struct SettingsView: View {
     @AppStorage("keepIndent") private var keepIndent = true
     @AppStorage("tintMenuBar") private var tintMenuBar = true
     @AppStorage("showPadNumber") private var showPadNumber = false
+    @AppStorage("vibrant") private var vibrant = false
     @AppStorage("appIcon") private var appIcon = AppIcons.default
     @AppStorage("tintFooter") private var tintFooter = true
     @AppStorage("allowURLAdd") private var allowURLAdd = true
@@ -264,6 +265,9 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: 220)
+            }
+            row("Background") {
+                Toggle("Vibrant: let the desktop show through, blurred", isOn: $vibrant).toggleStyle(.checkbox)
             }
             row("App icon") { iconPicker }
             note("Changes the Dock icon while scrap runs; Finder keeps the original.")

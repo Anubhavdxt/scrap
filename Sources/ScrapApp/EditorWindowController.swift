@@ -95,6 +95,10 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
 
     private func applySettings(to window: NSWindow) {
         window.level = UserDefaults.standard.bool(forKey: "windowFloating") ? .floating : .normal
+        let vibrant = UserDefaults.standard.bool(forKey: "vibrant")
+        window.isOpaque = !vibrant
+        window.backgroundColor = vibrant ? .clear : .windowBackgroundColor
+        window.invalidateShadow()
         window.appearance = switch UserDefaults.standard.string(forKey: "appearance") {
         case "dark": NSAppearance(named: .darkAqua)
         case "light": NSAppearance(named: .aqua)
