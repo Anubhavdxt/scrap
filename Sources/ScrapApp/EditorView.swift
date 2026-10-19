@@ -38,6 +38,7 @@ struct EditorView: NSViewRepresentable {
         // TextKit 1 stack with our layout manager, which draws the task icons and bullets.
         let storage = NSTextStorage()
         let layout = ScrapLayoutManager()
+        layout.delegate = context.coordinator
         storage.addLayoutManager(layout)
         let container = NSTextContainer(size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude))
         container.widthTracksTextView = true
@@ -115,7 +116,7 @@ struct EditorView: NSViewRepresentable {
         context.coordinator.apply(theme, to: tv, force: false)
     }
 
-    final class Coordinator: NSObject, NSTextViewDelegate {
+    final class Coordinator: NSObject, NSTextViewDelegate, NSLayoutManagerDelegate {
         var parent: EditorView
         private var appliedTheme: String?
         /// The prose font; raw mode is monospaced.
@@ -130,6 +131,19 @@ struct EditorView: NSViewRepresentable {
         var symbolObserver: NSObjectProtocol?
 
         init(_ parent: EditorView) { self.parent = parent }
+
+        /// Settles the layout of what is on screen and redraws it, after the styling changed line heights.
+        func refreshDisplay(_ tv: NSTextView) {
+            if let layout = tv.layoutManager, let container = tv.textContainer { layout.ensureLayout(forBoundingRect: tv.visibleRect, in: container) }
+            tv.needsDisplay = true
+        }
+
+        /// Lines can move after they were first drawn (a hidden code fence collapses, a revealed one grows, layout
+        /// finishes in the background). Redraw once layout settles so no line is left drawn at its old position.
+        func layoutManager(_ layoutManager: NSLayoutManager, didCompleteLayoutFor textContainer: NSTextContainer?, atEnd layoutFinishedFlag: Bool) {
+            guard layoutFinishedFlag, let view = textContainer?.textView else { return }
+            DispatchQueue.main.async { view.needsDisplay = true }
+        }
 
         deinit {
             focusObserver.map(NotificationCenter.default.removeObserver)
@@ -293,6 +307,7 @@ struct EditorView: NSViewRepresentable {
                         revealed = paragraphs(of: tv.selectedRange(), in: storage)
                         MarkdownStyler.applyEdit(oldText: oldText, oldSpans: previous.spans, newSpans: spans, oldReveal: oldRevealed,
                                                  newReveal: revealed, to: storage, style: style)
+                        refreshDisplay(tv)
                         return
                     }
                 }
@@ -302,6 +317,7 @@ struct EditorView: NSViewRepresentable {
             }
             revealed = paragraphs(of: tv.selectedRange(), in: storage)
             MarkdownStyler.apply(spans, to: storage, range: full, reveal: revealed, style: style)
+            refreshDisplay(tv)
         }
 
         /// Moving the caret to another paragraph shows that paragraph's Markdown syntax and hides the previous one's.
@@ -321,6 +337,7 @@ struct EditorView: NSViewRepresentable {
             for range in [before, now] where range.upperBound <= storage.length {
                 MarkdownStyler.apply(spans, to: storage, range: range, reveal: now, style: style)
             }
+            refreshDisplay(tv)
         }
 
         private func paragraphs(of selection: NSRange, in storage: NSTextStorage) -> NSRange {
