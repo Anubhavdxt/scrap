@@ -31,6 +31,7 @@ struct ContentView: View {
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("markers") private var markers = "hide"
     @AppStorage("tintFooter") private var tintFooter = true
+    @AppStorage("vibrant") private var vibrant = false
     @AppStorage("customBullets") private var customBullets = ""
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scrapWindowed) private var windowed
@@ -40,11 +41,12 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             TopBar(model: model)
-                .background(Color(nsColor: NSColor(hex: theme.background)))
+                .background(Color(nsColor: Vibrancy.background(NSColor(hex: theme.background), vibrant: vibrant)))
             Divider()
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
                        colorHighlights: colorHighlights, markers: markers, rendered: rendered,
-                       selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection, customBullets: customBullets)
+                       selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection, customBullets: customBullets,
+                       vibrant: vibrant)
             Divider()
             StatusLine(model: model)
                 .background(footerBackground)
@@ -52,6 +54,7 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // In a window the content runs under the (empty, transparent) title strip, so the top bar is the only bar.
         .ignoresSafeArea(.container, edges: windowed ? .top : [])
+        .background { if vibrant { VibrantBackdrop() } }
         .background { shortcuts }
         .overlay { overlays }
         .onChange(of: model.showSearch) { _, open in if !open { refocus() } }
@@ -62,8 +65,9 @@ struct ContentView: View {
     /// The theme's background, with a little of the open pad's colour in it (Settings can turn that off).
     private var footerBackground: Color {
         let base = NSColor(hex: theme.background)
-        guard tintFooter else { return Color(nsColor: base) }
-        return Color(nsColor: FooterTint.color(background: base, pad: PadColors.nsColor(for: model.pad.number), strength: theme.isDark ? 0.18 : 0.14))
+        guard tintFooter else { return Color(nsColor: Vibrancy.background(base, vibrant: vibrant)) }
+        let tinted = FooterTint.color(background: base, pad: PadColors.nsColor(for: model.pad.number), strength: theme.isDark ? 0.18 : 0.14)
+        return Color(nsColor: Vibrancy.background(tinted, vibrant: vibrant))
     }
 
     private func refocus() {

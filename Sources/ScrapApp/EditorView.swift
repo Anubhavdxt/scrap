@@ -29,6 +29,8 @@ struct EditorView: NSViewRepresentable {
     var selection: Binding<NSRange>? = nil
     /// The user's own smart bullets, as stored in Settings (JSON).
     var customBullets = ""
+    /// Draws the background partly see-through (the window shows a blurred backdrop).
+    var vibrant = false
 
     private static let maxHighlightLength = 300_000
 
@@ -237,12 +239,12 @@ struct EditorView: NSViewRepresentable {
         }
 
         func apply(_ theme: Theme, to tv: NSTextView, force: Bool) {
-            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)|\(parent.rendered)|\(parent.selectionColor?.description ?? "")|\(parent.customBullets)"
+            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)|\(parent.rendered)|\(parent.selectionColor?.description ?? "")|\(parent.customBullets)|\(parent.vibrant)"
             guard force || appliedTheme != key else { return }
             appliedTheme = key
             setWrap(parent.wrap, in: tv)
             tv.drawsBackground = true
-            tv.backgroundColor = NSColor(hex: theme.background)
+            tv.backgroundColor = Vibrancy.background(NSColor(hex: theme.background), vibrant: parent.vibrant)
             tv.insertionPointColor = NSColor(hex: theme.accent)
             tv.selectedTextAttributes = [.backgroundColor: (parent.selectionColor ?? NSColor(hex: theme.accent)).withAlphaComponent(0.35)]
             tv.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
@@ -257,7 +259,9 @@ struct EditorView: NSViewRepresentable {
             container.widthTracksTextView = on
             if on {
                 tv.autoresizingMask = [.width]
-                container.containerSize = NSSize(width: scroll.contentSize.width, height: CGFloat.greatestFiniteMagnitude)
+                // The text view's width less its insets, as when it tracks the view; wider and the text (and code
+                // panels) ran under the right edge after any settings change.
+                container.containerSize = NSSize(width: max(0, scroll.contentSize.width - tv.textContainerInset.width * 2), height: CGFloat.greatestFiniteMagnitude)
                 tv.setFrameSize(NSSize(width: scroll.contentSize.width, height: tv.frame.height))
             } else {
                 container.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
