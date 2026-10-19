@@ -90,3 +90,4 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 
 - [ ] Settings > Appearance > App icon: picking one changes the Dock icon at once; Cobalt restores the original
 - [ ] Settings > Window > "Show the pad number in its dot": digits readable in every dot, current dot included (two digits for pad 10+)
+- [ ] Settings > Appearance > Background: Vibrant lets the desktop show through blurred, in the popover and the window; text stays readable on light and dark themes

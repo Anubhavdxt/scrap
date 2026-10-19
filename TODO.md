@@ -28,7 +28,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] Hotkey opens the detached window at the pointer
 - [x] `scrap://` links: open a pad, add text (never read)
 - [x] From Tot's settings: pad number in its dot, alternate app icons (Dock)
-- [ ] Vibrant background
+- [x] Vibrant background (Settings > Appearance)
 - [x] Font size (⌘+ ⌘− ⌘0), font family picker, line wrapping toggle
 - [x] List helpers: Return continues lists, Tab indents, ⌘Return toggles checkboxes
 - [x] Detach/pin the popover into a normal window (pin button, remembers size and place, optional always-on-top)
