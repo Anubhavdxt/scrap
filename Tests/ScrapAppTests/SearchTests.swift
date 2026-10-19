@@ -1,4 +1,5 @@
 import XCTest
+import Vision
 import SwiftUI
 @testable import ScrapApp
 import ScrapCore
@@ -108,24 +109,30 @@ final class SearchModelTests: XCTestCase {
     private let pads: [(number: Int, text: String)] = [(1, "https://x.com/watch?v=abc\nvisualize the data"), (2, "other")]
 
     func testOnlyTheLatestQueryIsShown() async {
-        let m = SearchModel(pads: { self.pads })
+        let m = SearchModel(debounce: .zero, pads: { self.pads })
         for ch in "visualize" { m.query.append(ch) }
         await m.settle()
         XCTAssertEqual(m.result.hits.map(\.pad), [1])
         XCTAssertEqual(m.result.hits[0].line, 2)
     }
 
-    func testPadsAreReadOnceNotOnEveryKeystroke() async {
+    func testTypingSearchesOnlyAfterAPauseAndReadsThePadsOnce() async {
         var reads = 0
-        let m = SearchModel(pads: { reads += 1; return self.pads })
+        let m = SearchModel(debounce: .milliseconds(60), pads: { reads += 1; return self.pads })
         for ch in "visualize" { m.query.append(ch) }
+        XCTAssertEqual(reads, 0, "nothing is read while typing")
         await m.settle()
         XCTAssertEqual(reads, 1)
+        XCTAssertEqual(m.searches, 1, "one search for the whole word, not nine")
         XCTAssertFalse(m.result.hits.isEmpty)
+        m.query = "data"
+        await m.settle()
+        XCTAssertEqual(reads, 1, "the pads are kept for later queries")
+        XCTAssertEqual(m.searches, 2)
     }
 
     func testNoMatchesClearsEarlierResults() async {
-        let m = SearchModel(pads: { self.pads })
+        let m = SearchModel(debounce: .zero, pads: { self.pads })
         m.query = "v"
         await m.settle()
         XCTAssertFalse(m.result.hits.isEmpty)
@@ -135,12 +142,59 @@ final class SearchModelTests: XCTestCase {
     }
 
     func testBlankQueryClearsAndSelectionStaysInRange() async {
-        let m = SearchModel(pads: { self.pads })
+        let m = SearchModel(debounce: .zero, pads: { self.pads })
         m.query = "e"
         await m.settle()
         m.move(5); XCTAssertEqual(m.selection, m.result.hits.count - 1)
         m.move(-9); XCTAssertEqual(m.selection, 0)
         m.query = "  "
         XCTAssertEqual(m.result, .empty)
+    }
+}
+
+@MainActor
+final class SearchDisplayTests: XCTestCase {
+    /// The list on screen must follow the results as the query changes (a lazy stack keyed by row index once kept the first).
+    func testTheListShowsTheResultsOfTheLatestQuery() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-display-\(UUID().uuidString)")
+        let pads = home.appendingPathComponent("pads")
+        try FileManager.default.createDirectory(at: pads, withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: pads.path, pads: 7), home: home)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        try "Integrated environmental and navigation dynamics".write(to: pads.appendingPathComponent("1.md"), atomically: true, encoding: .utf8)
+        try "# Heading1 ## Heading2 ### Heading3".write(to: pads.appendingPathComponent("3.md"), atomically: true, encoding: .utf8)
+        let model = EditorModel()
+
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let host = NSHostingView(rootView: SearchView(model: model))
+        window.contentView = host
+        window.makeKeyAndOrderFront(nil)
+        defer { window.close() }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        guard let editor = window.firstResponder as? NSTextView else { return XCTFail("no field editor") }
+
+        // The same panel, searched again after the first results are on screen.
+        for (word, expected, unexpected) in [("navigation", "dynamics", "Heading1"), ("heading2", "Heading1", "dynamics"), ("environmental", "dynamics", "Heading1")] {
+            editor.insertText(word, replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+            RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+            let text = screenText(host).joined(separator: " ")
+            XCTAssertTrue(text.contains(expected), "\(word): expected \(expected) in \(text)")
+            XCTAssertFalse(text.contains(unexpected), "\(word): stale \(unexpected) in \(text)")
+        }
+    }
+
+    private func screenText(_ view: NSView) -> [String] {
+        view.layoutSubtreeIfNeeded()
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return [] }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let cg = rep.cgImage else { return [] }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        try? VNImageRequestHandler(cgImage: cg).perform([request])
+        return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
     }
 }
