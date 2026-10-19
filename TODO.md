@@ -29,6 +29,7 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 - [x] `scrap://` links: open a pad, add text (never read)
 - [x] From Tot's settings: pad number in its dot, alternate app icons (Dock)
 - [x] Vibrant background (Settings > Appearance)
+- [x] Settings redesigned to four tabs (General, Appearance, Editor, Window) that fit without scrolling; About and the key reference folded into General/Editor and a Help menu
 - [x] Font size (⌘+ ⌘− ⌘0), font family picker, line wrapping toggle
 - [x] List helpers: Return continues lists, Tab indents, ⌘Return toggles checkboxes
 - [x] Detach/pin the popover into a normal window (pin button, remembers size and place, optional always-on-top)
