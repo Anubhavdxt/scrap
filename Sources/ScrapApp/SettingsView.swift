@@ -67,7 +67,7 @@ struct SettingsView: View {
             tabBar
             Divider().opacity(0.6)
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 11) {
                     switch tab {
                     case .general: general
                     case .appearance: look
@@ -205,7 +205,11 @@ struct SettingsView: View {
                 Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
                     .toggleStyle(.checkbox).font(.system(size: 12))
                 Spacer()
-                Button("Quit scrap") { NSApp.terminate(nil) }.controlSize(.small)
+                Button { NSApp.terminate(nil) } label: {
+                    HStack(spacing: 6) { Text("Quit scrap"); Text("⌘Q").foregroundStyle(dim) }.padding(.horizontal, 4)
+                }
+                .controlSize(.large)
+                .keyboardShortcut("q", modifiers: .command)
             }
             if let loginMessage { note(loginMessage).padding(.leading, 0) }
         }
@@ -282,18 +286,16 @@ struct SettingsView: View {
         Group {
             row("Font") {
                 Picker("", selection: $fontFamily) {
-                    Text("System (proportional)").tag(EditorFont.systemFamily)
+                    Text("System").tag(EditorFont.systemFamily)
                     Text("System Mono").tag("")
                     ForEach(EditorFont.families, id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
-                .frame(width: 200)
+                .frame(width: 150)
                 .help("Code and raw text are always monospaced.")
-            }
-            row("Size") {
                 Stepper(value: $fontSize, in: EditorFont.sizeRange, step: 1) { Text("\(Int(fontSize)) pt").monospacedDigit() }
+                    .help("⌘+ ⌘− ⌘0 change the size from the keyboard.")
                 if fontSize != EditorFont.defaultSize { Button("Reset") { fontSize = EditorFont.defaultSize }.controlSize(.small) }
-                Text("⌘+ ⌘− ⌘0").font(.system(size: 11)).foregroundStyle(dim)
             }
             row("Markdown marks") {
                 Picker("", selection: $markers) {
@@ -315,11 +317,16 @@ struct SettingsView: View {
                 Toggle("scrap:// links add text", isOn: $allowURLAdd).help("They can open a pad or add text, never read one. An addition is announced in the footer.")
             }
             keyHints.padding(.top, 2)
-            DisclosureGroup(isExpanded: $bulletsOpen) {
-                CustomBulletsEditor().padding(.top, 6)
-            } label: {
-                Text("Custom smart bullets").font(.system(size: 13, weight: .medium))
+            Button { withAnimation(.easeOut(duration: 0.15)) { bulletsOpen.toggle() } } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).rotationEffect(.degrees(bulletsOpen ? 90 : 0))
+                    Text("Custom smart bullets").font(.system(size: 13, weight: .medium))
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            if bulletsOpen { CustomBulletsEditor().padding(.top, 2) }
         }
     }
 
@@ -377,8 +384,7 @@ struct SettingsView: View {
                     .fill(LinearGradient(colors: [accent.opacity(0.32), accent.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing))
                 RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(0.35), lineWidth: 1)
                 HStack(spacing: 16) {
-                    Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 76, height: 76)
-                        .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+                    logo.frame(width: 76, height: 76)
                     VStack(alignment: .leading, spacing: 6) {
                         Text("scrap").font(.system(size: 30, weight: .bold, design: .rounded))
                         Text("A scratchpad that stays out of the way.").font(.system(size: 12)).foregroundStyle(dim)
@@ -410,6 +416,16 @@ struct SettingsView: View {
                 Text("Your pads are plain Markdown files. Nothing leaves your Mac.").font(.system(size: 11)).foregroundStyle(dim)
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// The icon in use: the chosen Dock icon, else the app's own, else a drawn stand-in (never a generic folder).
+    @ViewBuilder private var logo: some View {
+        if let image = AppIcons.image(appIcon) ?? AppIcons.image(AppIcons.default) {
+            Image(nsImage: image).resizable().shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+        } else {
+            RoundedRectangle(cornerRadius: 17).fill(LinearGradient(colors: [Color(red: 0.14, green: 0.33, blue: 0.48), Color(red: 0.05, green: 0.13, blue: 0.21)], startPoint: .top, endPoint: .bottom))
+                .overlay(Capsule().fill(Color(red: 0.98, green: 0.96, blue: 0.91)).frame(width: 40, height: 46).rotationEffect(.degrees(-5)))
         }
     }
 

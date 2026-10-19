@@ -16,11 +16,15 @@ final class SettingsTabsTests: XCTestCase {
         setenv("HOME", home.path, 1)
         try Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
         for key in ["settingsTab", "themeFamily", "appearance"] { UserDefaults.standard.removeObject(forKey: key) }
+        // The icons the app bundle carries, taken from the repo.
+        let resources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources")
+        if let bundle = Bundle(path: resources.path) { AppIcons.bundle = bundle }
         UserDefaults.standard.set("cobalt2", forKey: "themeFamily")
         UserDefaults.standard.set("dark", forKey: "appearance")
     }
 
     override func tearDownWithError() throws {
+        AppIcons.bundle = .main
         if let oldHome { setenv("HOME", oldHome, 1) }
         for key in ["settingsTab", "themeFamily", "appearance"] { UserDefaults.standard.removeObject(forKey: key) }
         try? FileManager.default.removeItem(at: home)

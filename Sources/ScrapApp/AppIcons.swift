@@ -18,8 +18,12 @@ enum AppIcons {
     /// A stored id that no longer exists falls back to the default.
     static func resolve(_ id: String) -> String { all.contains { $0.id == id } ? id : Self.default }
 
-    static func image(_ id: String, bundle: Bundle = .main) -> NSImage? {
-        bundle.url(forResource: resolve(id), withExtension: "png", subdirectory: "Icons").flatMap(NSImage.init(contentsOf:))
+    /// Where the icon images live (the app bundle; tests point it at the repo's Resources).
+    nonisolated(unsafe) static var bundle: Bundle = .main
+
+    static func image(_ id: String, bundle: Bundle? = nil) -> NSImage? {
+        let bundle = bundle ?? Self.bundle
+        return bundle.url(forResource: resolve(id), withExtension: "png", subdirectory: "Icons").flatMap(NSImage.init(contentsOf:))
     }
 
     /// Sets the Dock icon. The default goes back to the bundle's own icon.
