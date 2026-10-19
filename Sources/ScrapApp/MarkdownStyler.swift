@@ -27,6 +27,8 @@ struct MarkdownStyle {
     /// Raw mode: the same colours, weights, panels and links, but every Markdown mark stays visible (nothing hidden,
     /// no icons) and the text is monospaced.
     var raw = false
+    /// Colour codes such as `#0352BF` are drawn as chips of that colour.
+    var colorChips = true
 
     var base: NSColor { NSColor(hex: theme.color(.base)) }
     var accent: NSColor { NSColor(hex: theme.accent) }
@@ -88,6 +90,13 @@ enum MarkdownStyler {
             attrs[.foregroundColor] = base.withAlphaComponent(0.5)
         }
         if span.inlineCode { attrs[.backgroundColor] = base.withAlphaComponent(0.12) }
+        if let chip = span.chip, style.colorChips {
+            let fill = NSColor(srgbRed: CGFloat((chip >> 24) & 0xFF) / 255, green: CGFloat((chip >> 16) & 0xFF) / 255,
+                               blue: CGFloat((chip >> 8) & 0xFF) / 255, alpha: CGFloat(chip & 0xFF) / 255)
+            attrs[.backgroundColor] = fill
+            attrs[.foregroundColor] = Self.readableText(on: fill, over: NSColor(hex: style.theme.background))
+            attrs[.font] = style.codeFont
+        }
         if let url = span.url {
             attrs[.font] = style.baseFont   // not the italic of the `[ ](…)` span underneath
             attrs[.foregroundColor] = style.colorHighlights ? style.accent : base
@@ -113,6 +122,16 @@ enum MarkdownStyler {
             storage.addAttribute(.paragraphStyle, value: indent, range: paragraph(span.range, ns))
         }
         if let marker = span.marker, !style.raw { applyMarker(marker, over: span.range, to: storage, ns: ns, style: style) }
+    }
+
+    /// Black or white, whichever reads better on `fill` (as seen over the theme's background when it is see-through).
+    static func readableText(on fill: NSColor, over background: NSColor) -> NSColor {
+        guard let f = fill.usingColorSpace(.sRGB), let b = background.usingColorSpace(.sRGB) else { return .white }
+        let a = f.alphaComponent
+        let r = f.redComponent * a + b.redComponent * (1 - a)
+        let g = f.greenComponent * a + b.greenComponent * (1 - a)
+        let blue = f.blueComponent * a + b.blueComponent * (1 - a)
+        return 0.299 * r + 0.587 * g + 0.114 * blue > 0.6 ? NSColor.black.withAlphaComponent(0.85) : .white
     }
 
     /// Adds bold/italic (and optionally a size) to whatever font each part of `range` already has.

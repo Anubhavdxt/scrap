@@ -28,6 +28,7 @@ struct SettingsView: View {
     @AppStorage("fontFamily") private var fontFamily = EditorFont.systemFamily
     @AppStorage("wrapLines") private var wrapLines = true
     @AppStorage("colorHighlights") private var colorHighlights = true
+    @AppStorage("colorChips") private var colorChips = true
     @AppStorage("markers") private var markers = "hide"
     @AppStorage("autoList") private var autoList = true
     @AppStorage("keepIndent") private var keepIndent = true
@@ -293,6 +294,7 @@ struct SettingsView: View {
             }
             row("Wrap lines") { Toggle("", isOn: $wrapLines).labelsHidden().toggleStyle(.switch) }
             row("Colour highlights") { Toggle("", isOn: $colorHighlights).labelsHidden().toggleStyle(.switch) }
+            row("Colour codes") { Toggle("Show #0352BF as a colour chip", isOn: $colorChips).toggleStyle(.checkbox) }
             note("Colours bold, italic, links, headings and code. Off keeps the weights and underlines but uses one text colour.")
             row("Markdown marks") {
                 Picker("", selection: $markers) {

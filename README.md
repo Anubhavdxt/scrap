@@ -8,7 +8,7 @@ A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of
 
 - **Plain files:** pads are `1.md` … `N.md` in a folder you choose, iCloud Drive by default. No account, no lock-in, nothing to export
 - **Pads and search:** numbered colour dots at the top; switch with `⌘1`–`⌘9`, or search the text of every pad with `⌘K` (a typo still finds the word)
-- **Live Markdown:** styled as you type, and the `#`, `**` and backticks hide away from the line you're editing. 9 themes in dark and light, and per-language colours in code blocks
+- **Live Markdown:** styled as you type, and the `#`, `**` and backticks hide away from the line you're editing. 9 themes in dark and light, per-language colours in code blocks, and colour codes like `#0352BF` shown as chips
 - **Raw view:** `⌥⌘R` shows the same colours with every mark visible
 - **Bullets and tasks:** `- [ ]` tasks and smart bullets (○ ● □ ■ ▷ ▶ ☆ ★ and more, plus your own) flip between open and done when you click them
 - **Menu bar, Dock or both:** a popover, or a resizable window you can pin above other windows

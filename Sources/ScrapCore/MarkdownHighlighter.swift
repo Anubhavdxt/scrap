@@ -34,6 +34,8 @@ public struct Span: Equatable {
     public var code = false
     /// A `` `code` `` run.
     public var inlineCode = false
+    /// On a colour code such as `#0352BF`: the colour as 0xRRGGBBAA, drawn as a chip behind the text.
+    public var chip: UInt32? = nil
     /// On the opening fence of a code block: the language written after the backticks (`swift` in "```swift").
     public var blockLabel: String? = nil
 }
@@ -101,6 +103,9 @@ public enum MarkdownHighlighter {
     private static let boldItalic = try! NSRegularExpression(pattern: "(\\*\\*\\*|___)(?=\\S)(.+?)(?<=\\S)\\1")
     private static let italicStar = try! NSRegularExpression(pattern: "(?<!\\*)\\*(?=[^\\s*])(.+?)(?<=[^\\s*])\\*(?!\\*)")
     private static let italicUnderscore = try! NSRegularExpression(pattern: "(?<!\\w)_(?=[^\\s_])(.+?)(?<=[^\\s_])_(?!\\w)")
+    /// `#RRGGBB` and `#RRGGBBAA` anywhere; `#RGB` and `#RGBA` too, but only inside backticks (bare `#123` is usually an issue number).
+    private static let longColor = try! NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_&#/])#([0-9A-Fa-f]{8}|[0-9A-Fa-f]{6})(?![\p{L}\p{N}_])"#)
+    private static let shortColor = try! NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_&#/])#([0-9A-Fa-f]{4}|[0-9A-Fa-f]{3})(?![\p{L}\p{N}_])"#)
     private static let link = try! NSRegularExpression(pattern: "(!?)\\[([^\\]]*)\\]\\(([^)\\s]*)[^)]*\\)")
     private static let strike = try! NSRegularExpression(pattern: "(~~)(?=\\S)(.+?)(?<=\\S)\\1")
     private static let autolink = try! NSRegularExpression(pattern: #"<((?:https?://|mailto:)[^>\s]+)>|(?:https?://|www\.|mailto:)[^\s<>]+"#)
@@ -185,7 +190,9 @@ public enum MarkdownHighlighter {
             spans.append(Span(range: shift(NSRange(location: range.location, length: open)), token: .comment, syntax: true))
             spans.append(Span(range: shift(NSRange(location: range.upperBound - close, length: close)), token: .comment, syntax: true))
         }
+        var codeRanges: [NSRange] = []
         scan(inlineCode) { m in
+            codeRanges.append(m.range)
             spans.append(Span(range: shift(m.range), token: .string, inlineCode: true))
             syntaxSpans(m.range, open: m.range(at: 1).length, close: m.range(at: 1).length)
         }
@@ -216,6 +223,16 @@ public enum MarkdownHighlighter {
                 if range.length > 0 { spans.append(Span(range: shift(range), token: .attr, url: normalizedURL(text))) }
             }
         }
+
+        // Colour codes become chips. In code, any form; elsewhere only the long forms, and never inside a link or address.
+        for (re, inCodeOnly) in [(longColor, false), (shortColor, true)] {
+            for m in re.matches(in: line, range: rest) {
+                let inCode = codeRanges.contains { NSIntersectionRange($0, m.range).length == m.range.length }
+                guard inCode || (!inCodeOnly && free(m.range)) else { continue }
+                let digits = ns.substring(with: m.range(at: 1))
+                if let value = colorValue(digits) { spans.append(Span(range: shift(m.range), token: .base, chip: value)) }
+            }
+        }
         guard emphasis else { return }
 
         // `***both***` first, so the shorter forms don't take part of it.
@@ -238,6 +255,14 @@ public enum MarkdownHighlighter {
         styled(italicUnderscore, token: .type, italic: true, markerLength: 1)
         styled(bold, token: .keyword, bold: true, markerLength: 2)
         styled(strike, token: .comment, strike: true, markerLength: 2)
+    }
+
+    /// 0xRRGGBBAA from 3, 4, 6 or 8 hex digits.
+    static func colorValue(_ digits: String) -> UInt32? {
+        var full = digits
+        if digits.count == 3 || digits.count == 4 { full = digits.map { "\($0)\($0)" }.joined() }
+        guard full.count == 6 || full.count == 8, let value = UInt32(full, radix: 16) else { return nil }
+        return full.count == 6 ? (value << 8) | 0xFF : value
     }
 
     /// Adds a scheme to bare `www.` addresses.
