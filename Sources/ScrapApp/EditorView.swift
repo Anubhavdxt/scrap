@@ -141,7 +141,7 @@ struct EditorView: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             parent.text = tv.string
-            highlight(tv)
+            highlight(tv, edited: true)
         }
 
         /// List editing: Return continues a list, Tab and Shift-Tab indent list items.
@@ -265,7 +265,7 @@ struct EditorView: NSViewRepresentable {
         }
 
         /// Re-styles the whole text (after an edit or a settings change).
-        func highlight(_ tv: NSTextView) {
+        func highlight(_ tv: NSTextView, edited: Bool = false) {
             guard let storage = tv.textStorage else { return }
             let style = self.style
             if let lm = tv.layoutManager as? ScrapLayoutManager {
@@ -284,8 +284,17 @@ struct EditorView: NSViewRepresentable {
             }
             if storage.length <= EditorView.maxHighlightLength {
                 if spansText != storage.string {
+                    let previous = (text: spansText, spans: spans)
                     spans = MarkdownHighlighter.spans(in: storage.string)
                     spansText = storage.string
+                    // After a keystroke, restyle only what the edit touched.
+                    if edited, let oldText = previous.text, (oldText as NSString).length <= EditorView.maxHighlightLength {
+                        let oldRevealed = revealed
+                        revealed = paragraphs(of: tv.selectedRange(), in: storage)
+                        MarkdownStyler.applyEdit(oldText: oldText, oldSpans: previous.spans, newSpans: spans, oldReveal: oldRevealed,
+                                                 newReveal: revealed, to: storage, style: style)
+                        return
+                    }
                 }
             } else {
                 spans = []
