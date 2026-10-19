@@ -47,7 +47,8 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
   - Memory: footprint 25 MB (what Activity Monitor shows; `ps` RSS says 115 MB but counts shared system libraries). 18 MB of it is malloc. Tot, after 15 days of use, has a 269 MB footprint (not comparable: needs scrap measured after long use).
   - CPU: 0% idle.
   - Typing cost: every edit re-parses and restyles the whole pad. Warm, release: 2 KB 6 ms, 10 KB 32 ms, 50 KB 175 ms, 100 KB about 380 ms (styling is about 85% of it; parsing is cheap). Highlighting stops at 300 KB.
-  - To do: restyle only the edited paragraph(s) (widened to an enclosing code block); measure footprint after long use (open popover/settings, large pad, many searches) and for leaks; cache pad texts for search; `-Osize`; a CI benchmark with a budget.
+  - Done: restyle only what an edit touches (#51): a keystroke in a 100 KB pad went from about 380 ms to about 42 ms, the rest being the parse.
+  - To do: parse incrementally too; measure footprint after long use (open popover/settings, large pad, many searches) and for leaks; cache pad texts for search; `-Osize`; a CI benchmark with a budget.
 - [ ] README demo GIF, screenshots, repo topics/description, comparison line, CONTRIBUTING + issue templates, "good first issue" labels
 - [ ] Prebuilt notarized .zip (needs a paid Apple Developer account: decide)
 - [ ] Launch posts (owner): Show HN, r/macapps, r/swift, r/opensource, Product Hunt, awesome-macos lists
