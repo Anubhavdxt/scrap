@@ -5,7 +5,7 @@ import ScrapCore
 
 @MainActor
 final class SettingsTabsTests: XCTestCase {
-    static let tabs = ["General", "Appearance", "Editor", "Window"]
+    static let tabs = ["General", "Appearance", "Editor", "About"]
     private var home: URL!
     private var oldHome: String?
 
@@ -56,7 +56,7 @@ final class SettingsTabsTests: XCTestCase {
 
     /// Where the lowest content of a tab ends, in points from the top (measured in a window tall enough to show it all).
     private func contentBottom(of tab: String) throws -> CGFloat {
-        let tall: CGFloat = 1100, footer: CGFloat = 36, top: CGFloat = 76
+        let tall: CGFloat = 1100, footer: CGFloat = 0, top: CGFloat = 76
         let rep = try render(tab: tab, height: tall)
         let scale = CGFloat(rep.pixelsHigh) / tall
         let width = rep.pixelsWide
@@ -78,15 +78,15 @@ final class SettingsTabsTests: XCTestCase {
 
     /// Each tab fits the pane without scrolling (collapsed sections stay collapsed).
     func testEveryTabFitsWithoutScrolling() throws {
-        let visibleBottom = SettingsView.size.height - 36 - 14   // the footer, and a little room above it
+        let visibleBottom = SettingsView.size.height - 14   // a little room below the content
         for tab in Self.tabs {
             let bottom = try contentBottom(of: tab)
             XCTAssertLessThanOrEqual(bottom, visibleBottom, "\(tab) runs to \(Int(bottom)) pt and the pane shows \(Int(visibleBottom)) pt of content")
         }
     }
 
-    func testAnOldSavedTabFallsBackToGeneral() throws {
-        for old in ["Shortcuts", "About"] {
+    func testAnOldSavedTabIsStillShown() throws {
+        for old in ["Shortcuts", "Window"] {
             let rep = try render(tab: old, height: SettingsView.size.height)
             XCTAssertGreaterThan(rep.pixelsHigh, 0)
         }

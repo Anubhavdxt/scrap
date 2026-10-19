@@ -4,18 +4,18 @@ import SwiftUI
 
 /// Settings pane shown in a popover attached to the gear. Uses the selected editor theme.
 struct SettingsView: View {
-    static let size = CGSize(width: 440, height: 500)
+    static let size = CGSize(width: 440, height: 460)
 
-    /// Four tabs, so each one fits without much scrolling.
+    /// Four tabs, like Tot's: what you will touch most, how it looks, how it edits, and a page about scrap.
     private enum Tab: String, CaseIterable, Identifiable {
-        case general = "General", appearance = "Appearance", editor = "Editor", window = "Window"
+        case general = "General", appearance = "Appearance", editor = "Editor", about = "About"
         var id: String { rawValue }
         var icon: String {
             switch self {
             case .general: "slider.horizontal.3"
             case .appearance: "paintpalette"
             case .editor: "textformat"
-            case .window: "macwindow"
+            case .about: "sparkles"
             }
         }
     }
@@ -72,7 +72,7 @@ struct SettingsView: View {
                     case .general: general
                     case .appearance: look
                     case .editor: editor
-                    case .window: window
+                    case .about: about
                     }
                 }
                 .padding(20)
@@ -80,8 +80,6 @@ struct SettingsView: View {
                 .id(tab)
                 .transition(.opacity)
             }
-            Divider().opacity(0.6)
-            footer
         }
         .background { tabShortcuts }
         .frame(width: Self.size.width, height: height)
@@ -140,29 +138,19 @@ struct SettingsView: View {
         select(all[(i + delta + all.count) % all.count])
     }
 
-    private var footer: some View {
-        HStack {
-            Text("scrap \(Scrap.version) · free and open source").font(.system(size: 11)).foregroundStyle(dim).lineLimit(1)
-            Spacer()
-            Menu("Help") {
-                Button("GitHub") { open("https://github.com/Anubhavdxt/scrap") }
-                Button("Discussions") { open("https://github.com/Anubhavdxt/scrap/discussions") }
-                Button("Report an issue") { open("https://github.com/Anubhavdxt/scrap/issues/new/choose") }
-                Divider()
-                Button("Say hi…") {
-                    model.showSayHi = true
-                    NotificationCenter.default.post(name: .toggleSettings, object: nil) // closes this pane
-                }
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .controlSize(.small)
-            Button("Quit scrap") { NSApp.terminate(nil) }
-                .controlSize(.small)
+    // MARK: Layout pieces
+
+    private func heading(_ text: String) -> some View {
+        Text(text).font(.system(size: 11, weight: .semibold)).foregroundStyle(dim).textCase(.uppercase).padding(.top, 2)
+    }
+
+    /// Checkboxes two to a line, so a handful of options take a few lines.
+    private func checks<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: 8) {
+            content()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Color.black.opacity(theme.isDark ? 0.18 : 0.05))
+        .toggleStyle(.checkbox)
+        .font(.system(size: 12))
     }
 
     // MARK: General
@@ -173,55 +161,54 @@ struct SettingsView: View {
                 Stepper(value: Binding(get: { model.padCount }, set: { model.setPadCount($0) }), in: 1...Config.maxPads) {
                     Text("\(model.padCount)").monospacedDigit()
                 }
+                .help("Lowering this hides pads. It never deletes them.")
             }
-            note("Lowering hides pads. It never deletes them.")
             row("Folder") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text((model.folder.path as NSString).abbreviatingWithTildeInPath)
-                        .font(.system(size: 11)).lineLimit(2).textSelection(.enabled)
-                    HStack {
-                        Button("Choose…") { chooseFolder() }.controlSize(.small)
-                        if model.folder != Config.defaultFolder() {
-                            Button("Use default") { model.setFolder(nil) }.controlSize(.small)
-                        }
-                    }
-                }
+                Text((model.folder.path as NSString).abbreviatingWithTildeInPath)
+                    .font(.system(size: 11)).lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                    .help("Pads in an old folder stay there.")
+                Button("Choose…") { chooseFolder() }.controlSize(.small)
+                if model.folder != Config.defaultFolder() { Button("Default") { model.setFolder(nil) }.controlSize(.small) }
             }
-            note("Pads in the old folder stay there.")
+            row("Show in") {
+                Picker("", selection: $iconMode) {
+                    ForEach(IconMode.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 220)
+            }
             row("Show or hide") { ShortcutRecorder(accent: accent, dim: dim) }
             if let error = hotkeys.error { note(error).foregroundStyle(.red) }
-            note("Click it, then press new keys (with ⌃ ⌥ or ⌘).")
-            row("Typing") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Continue lists on Return", isOn: $autoList)
-                    Toggle("Keep indentation on Return", isOn: $keepIndent)
-                }
-                .toggleStyle(.checkbox)
+            Divider().padding(.vertical, 2)
+            heading("Window")
+            checks {
+                Toggle("Open as a window", isOn: Binding(get: { detached || iconMode == .dock }, set: { detached = $0 }))
+                    .disabled(iconMode == .dock)
+                    .help(iconMode == .dock ? "With only a Dock icon, scrap opens as a window." : "Instead of a popover under the menu bar icon.")
+                Toggle("Keep above other windows", isOn: $windowFloating)
+                Toggle("Hotkey opens at the pointer", isOn: $windowFollowsPointer)
+                Toggle("Esc closes the window", isOn: $escCloses)
+                Toggle("Tint menu bar icon", isOn: $tintMenuBar).help("With the open pad's colour.")
             }
-            row("Other") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
-                    Toggle("Let scrap:// links add text (never read)", isOn: $allowURLAdd)
+            row("Size") {
+                Stepper(value: $cols, in: WindowSize.colsRange) { Text("\(cols)").monospacedDigit() }
+                Text("×").foregroundStyle(dim)
+                Stepper(value: $rows, in: WindowSize.rowsRange) { Text("\(rows)").monospacedDigit() }
+                Text("characters").foregroundStyle(dim).font(.system(size: 11))
+                if cols != WindowSize.defaultCols || rows != WindowSize.defaultRows {
+                    Button("Reset") { cols = WindowSize.defaultCols; rows = WindowSize.defaultRows }.controlSize(.small)
                 }
-                .toggleStyle(.checkbox)
             }
-            if let loginMessage { note(loginMessage) }
+            Divider().padding(.vertical, 2)
+            HStack {
+                Toggle("Open scrap at login", isOn: Binding(get: { launchAtLogin }, set: setLaunchAtLogin(_:)))
+                    .toggleStyle(.checkbox).font(.system(size: 12))
+                Spacer()
+                Button("Quit scrap") { NSApp.terminate(nil) }.controlSize(.small)
+            }
+            if let loginMessage { note(loginMessage).padding(.leading, 0) }
         }
-    }
-
-    /// Keys worth knowing.
-    private var keyHints: some View {
-        HStack(spacing: 6) {
-            keyHint("⌘K", "search"); keyHint("⌘1–9", "pads"); keyHint("⇧⌘⌫", "clear"); keyHint("⌘,", "settings"); keyHint("Esc", "close")
-        }
-    }
-
-    private func keyHint(_ keys: String, _ what: String) -> some View {
-        VStack(spacing: 2) {
-            key(keys)
-            Text(what).font(.system(size: 10)).foregroundStyle(dim)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
@@ -275,18 +262,15 @@ struct SettingsView: View {
                 .labelsHidden()
                 .frame(width: 220)
             }
-            Text("Theme").font(.system(size: 13, weight: .medium))
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+            heading("Theme")
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 6) {
                 ForEach(Themes.families, id: \.id) { f in swatch(f.id, f.name) }
             }
             Divider().padding(.vertical, 2)
-            row("Look") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Vibrant (the desktop shows through)", isOn: $vibrant)
-                    Toggle("Tint the footer with the pad colour", isOn: $tintFooter)
-                    Toggle("Show the pad number in its dot", isOn: $showPadNumber)
-                }
-                .toggleStyle(.checkbox)
+            checks {
+                Toggle("Vibrant (see-through)", isOn: $vibrant).help("Lets the desktop show through, blurred.")
+                Toggle("Tint the footer", isOn: $tintFooter).help("With the open pad's colour.")
+                Toggle("Pad number in its dot", isOn: $showPadNumber)
             }
             row("Dock icon") { iconPicker }.help("Changes the Dock icon while scrap runs; Finder keeps the original.")
         }
@@ -304,20 +288,12 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .frame(width: 200)
+                .help("Code and raw text are always monospaced.")
             }
-            note("Code and raw text are always monospaced.")
             row("Size") {
                 Stepper(value: $fontSize, in: EditorFont.sizeRange, step: 1) { Text("\(Int(fontSize)) pt").monospacedDigit() }
                 if fontSize != EditorFont.defaultSize { Button("Reset") { fontSize = EditorFont.defaultSize }.controlSize(.small) }
                 Text("⌘+ ⌘− ⌘0").font(.system(size: 11)).foregroundStyle(dim)
-            }
-            row("Text") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Wrap lines", isOn: $wrapLines)
-                    Toggle("Colour bold, italic, links and headings", isOn: $colorHighlights)
-                    Toggle("Show #0352BF as a colour chip", isOn: $colorChips)
-                }
-                .toggleStyle(.checkbox)
             }
             row("Markdown marks") {
                 Picker("", selection: $markers) {
@@ -327,15 +303,39 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .frame(width: 200)
+                .help("The ** # ` around styled text; hidden ones show on the line you're editing.")
             }
-            note("The ** # ` around styled text; hidden ones show on your line.")
-            keyHints.padding(.top, 4)
+            Divider().padding(.vertical, 2)
+            checks {
+                Toggle("Wrap lines", isOn: $wrapLines)
+                Toggle("Colour the styles", isOn: $colorHighlights).help("Bold, italic, links and headings.")
+                Toggle("Colour chips for #0352BF", isOn: $colorChips)
+                Toggle("Continue lists on Return", isOn: $autoList)
+                Toggle("Keep indentation on Return", isOn: $keepIndent)
+                Toggle("scrap:// links add text", isOn: $allowURLAdd).help("They can open a pad or add text, never read one. An addition is announced in the footer.")
+            }
+            keyHints.padding(.top, 2)
             DisclosureGroup(isExpanded: $bulletsOpen) {
                 CustomBulletsEditor().padding(.top, 6)
             } label: {
                 Text("Custom smart bullets").font(.system(size: 13, weight: .medium))
             }
         }
+    }
+
+    /// Keys worth knowing.
+    private var keyHints: some View {
+        HStack(spacing: 6) {
+            keyHint("⌘K", "search"); keyHint("⌘1–9", "pads"); keyHint("⇧⌘⌫", "clear"); keyHint("⌘,", "settings"); keyHint("Esc", "close")
+        }
+    }
+
+    private func keyHint(_ keys: String, _ what: String) -> some View {
+        VStack(spacing: 2) {
+            key(keys)
+            Text(what).font(.system(size: 10)).foregroundStyle(dim)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func swatch(_ id: String, _ name: String) -> some View {
@@ -345,7 +345,7 @@ struct SettingsView: View {
             VStack(spacing: 5) {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: NSColor(hex: t.background)))
-                    .frame(height: 36)
+                    .frame(height: 30)
                     .overlay(alignment: .topLeading) {
                         VStack(alignment: .leading, spacing: 3) {
                             Capsule().fill(Color(nsColor: NSColor(hex: t.accent))).frame(width: 24, height: 4)
@@ -361,54 +361,94 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Window
-
-    private var window: some View {
-        let size = WindowSize.contentSize(cols: cols, rows: rows)
-        return Group {
-            row("Show in") {
-                Picker("", selection: $iconMode) {
-                    ForEach(IconMode.allCases) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 220)
-            }
-            note(iconMode == .dock ? "With only a Dock icon, scrap opens as a window." : "The menu bar icon opens the editor as a popover.")
-            row("Behaviour") {
-                VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Open as a window instead of a popover", isOn: Binding(get: { detached || iconMode == .dock }, set: { detached = $0 }))
-                        .disabled(iconMode == .dock)
-                    Toggle("Keep the window above other windows", isOn: $windowFloating)
-                    Toggle("The hotkey opens the window at the pointer", isOn: $windowFollowsPointer)
-                    Toggle("Escape closes the window", isOn: $escCloses)
-                    Toggle("Tint the menu bar icon with the pad colour", isOn: $tintMenuBar)
-                }
-                .toggleStyle(.checkbox)
-            }
-            Divider().padding(.vertical, 2)
-            row("Size") {
-                Stepper(value: $cols, in: WindowSize.colsRange) { Text("\(cols)").monospacedDigit() }
-                Text("×").foregroundStyle(dim)
-                Stepper(value: $rows, in: WindowSize.rowsRange) { Text("\(rows)").monospacedDigit() }
-                Text("characters").foregroundStyle(dim).font(.system(size: 11))
-            }
-            note("Opens at about \(Int(size.width)) × \(Int(size.height)) pt, like a terminal's window size.")
-            row("") {
-                Button("Reset to \(WindowSize.defaultCols) × \(WindowSize.defaultRows)") {
-                    cols = WindowSize.defaultCols
-                    rows = WindowSize.defaultRows
-                }
-                .controlSize(.small)
-            }
-        }
-    }
-
     private func key(_ text: String) -> some View {
         Text(text)
             .font(.system(size: 12, design: .monospaced))
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(RoundedRectangle(cornerRadius: 5).fill(dim.opacity(0.2)))
+    }
+
+    // MARK: About
+
+    private var about: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(LinearGradient(colors: [accent.opacity(0.32), accent.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                RoundedRectangle(cornerRadius: 16).strokeBorder(accent.opacity(0.35), lineWidth: 1)
+                HStack(spacing: 16) {
+                    Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 76, height: 76)
+                        .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("scrap").font(.system(size: 30, weight: .bold, design: .rounded))
+                        Text("A scratchpad that stays out of the way.").font(.system(size: 12)).foregroundStyle(dim)
+                        padDots
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
+            }
+            .frame(height: 112)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                linkTile("star.fill", "Star on GitHub", "It helps others find it") { open("https://github.com/Anubhavdxt/scrap") }
+                linkTile("sparkles", "What's new", "Release notes") { open("https://github.com/Anubhavdxt/scrap/releases/latest") }
+                linkTile("bubble.left.and.bubble.right", "Discussions", "Ask, share ideas") { open("https://github.com/Anubhavdxt/scrap/discussions") }
+                linkTile("exclamationmark.bubble", "Report an issue", "Something broken?") { open("https://github.com/Anubhavdxt/scrap/issues/new/choose") }
+            }
+
+            Button {
+                model.showSayHi = true
+                NotificationCenter.default.post(name: .toggleSettings, object: nil) // closes this pane
+            } label: {
+                Label("Say hi", systemImage: "hand.wave").font(.system(size: 12, weight: .medium)).frame(maxWidth: .infinity)
+            }
+            .controlSize(.large)
+
+            VStack(spacing: 3) {
+                Text("Version \(Scrap.version) · free and open source (MIT)").font(.system(size: 11)).foregroundStyle(dim)
+                Text("Your pads are plain Markdown files. Nothing leaves your Mac.").font(.system(size: 11)).foregroundStyle(dim)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// The seven pad colours; click one to jump to that pad.
+    private var padDots: some View {
+        HStack(spacing: 7) {
+            ForEach(1...7, id: \.self) { n in
+                Button {
+                    model.open(number: n)
+                    NotificationCenter.default.post(name: .toggleSettings, object: nil)
+                } label: {
+                    Circle().fill(PadColors.color(for: n)).frame(width: 12, height: 12)
+                        .overlay(Circle().strokeBorder(.white.opacity(n == model.pad.number ? 0.9 : 0), lineWidth: 1.5))
+                }
+                .buttonStyle(.plain)
+                .help("Pad \(n)")
+            }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 6)
+        .background(Capsule().fill(Color.black.opacity(theme.isDark ? 0.28 : 0.08)))
+    }
+
+    private func linkTile(_ icon: String, _ title: String, _ subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon).font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(accent.opacity(0.16)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(.system(size: 12, weight: .semibold))
+                    Text(subtitle).font(.system(size: 10)).foregroundStyle(dim)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 10).fill(fg.opacity(0.06)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func open(_ url: String) {
