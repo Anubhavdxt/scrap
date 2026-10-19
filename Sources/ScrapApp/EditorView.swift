@@ -20,6 +20,7 @@ struct EditorView: NSViewRepresentable {
     let fontFamily: String
     let wrap: Bool
     var colorHighlights = true
+    var colorChips = true
     var markers = "hide"
     /// False shows the file as plain text: one monospaced font, every marker visible, nothing drawn.
     var rendered = true
@@ -239,7 +240,7 @@ struct EditorView: NSViewRepresentable {
         }
 
         func apply(_ theme: Theme, to tv: NSTextView, force: Bool) {
-            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.markers)|\(parent.rendered)|\(parent.selectionColor?.description ?? "")|\(parent.customBullets)|\(parent.vibrant)"
+            let key = "\(theme.id)|\(parent.fontSize)|\(parent.fontFamily)|\(parent.wrap)|\(parent.colorHighlights)|\(parent.colorChips)|\(parent.markers)|\(parent.rendered)|\(parent.selectionColor?.description ?? "")|\(parent.customBullets)|\(parent.vibrant)"
             guard force || appliedTheme != key else { return }
             appliedTheme = key
             setWrap(parent.wrap, in: tv)
@@ -279,7 +280,7 @@ struct EditorView: NSViewRepresentable {
         private var style: MarkdownStyle {
             MarkdownStyle(theme: parent.theme, baseFont: baseFont, codeFont: EditorFont.codeFont(size: parent.fontSize, family: parent.fontFamily),
                           colorHighlights: parent.colorHighlights, markers: MarkerMode(rawValue: parent.markers) ?? .hide,
-                          raw: !parent.rendered)
+                          raw: !parent.rendered, colorChips: parent.colorChips)
         }
 
         /// Re-styles the whole text (after an edit or a settings change).
