@@ -28,8 +28,12 @@ final class ScrapLayoutManager: NSLayoutManager {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         guard let storage = textStorage else { return }
         let characters = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        // Whole panels and bars, even when only part of one is being redrawn (the graphics context clips the rest):
+        // drawing just the redrawn paragraphs left seams and stale edges where a line's height had changed.
+        var drawn = Set<Int>()
         storage.enumerateAttribute(.scrapBlock, in: characters, options: []) { value, range, _ in
-            guard value != nil, let rect = fragments(in: range, origin: origin) else { return }
+            guard value != nil, let block = wholeRun(of: .scrapBlock, containing: range.location), drawn.insert(block.location).inserted,
+                  let rect = fragments(in: block, origin: origin) else { return }
             textColor.withAlphaComponent(0.07).setFill()
             NSBezierPath(roundedRect: rect.insetBy(dx: -4, dy: -5), xRadius: 6, yRadius: 6).fill()
         }
@@ -44,18 +48,23 @@ final class ScrapLayoutManager: NSLayoutManager {
             let size = (label as NSString).size(withAttributes: attributes)
             (label as NSString).draw(at: NSPoint(x: panel.maxX - size.width - 10, y: panel.minY + 4), withAttributes: attributes)
         }
+        drawn.removeAll()
         storage.enumerateAttribute(.scrapQuote, in: characters, options: []) { value, range, _ in
-            guard value != nil, let rect = fragments(in: range, origin: origin) else { return }
+            guard value != nil, let quote = wholeRun(of: .scrapQuote, containing: range.location), drawn.insert(quote.location).inserted,
+                  let rect = fragments(in: quote, origin: origin) else { return }
             accent.withAlphaComponent(0.6).setFill()
             NSBezierPath(roundedRect: NSRect(x: rect.minX + 3, y: rect.minY + 1, width: 3, height: rect.height - 2), xRadius: 1.5, yRadius: 1.5).fill()
         }
     }
 
     /// The whole code block (its run of `.scrapBlock` paragraphs) that contains `location`.
-    private func blockRange(containing location: Int) -> NSRange? {
+    private func blockRange(containing location: Int) -> NSRange? { wholeRun(of: .scrapBlock, containing: location) }
+
+    /// The full run of `key` around `location`, not clipped to what is being drawn.
+    private func wholeRun(of key: NSAttributedString.Key, containing location: Int) -> NSRange? {
         guard let storage = textStorage, location < storage.length else { return nil }
         var range = NSRange(location: 0, length: 0)
-        guard storage.attribute(.scrapBlock, at: location, longestEffectiveRange: &range, in: NSRange(location: 0, length: storage.length)) != nil else { return nil }
+        guard storage.attribute(key, at: location, longestEffectiveRange: &range, in: NSRange(location: 0, length: storage.length)) != nil else { return nil }
         return range
     }
 
