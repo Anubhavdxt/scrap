@@ -43,14 +43,16 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 
 ## Next (after v0.2.0)
 - [x] Search results show the text around each match (not just a pad label)
-- [ ] Performance (baseline measured at v0.2.0, release build, fresh launch, nothing open):
+- [x] Performance (baseline measured at v0.2.0, release build, fresh launch, nothing open):
   - Memory: footprint 25 MB (what Activity Monitor shows; `ps` RSS says 115 MB but counts shared system libraries). 18 MB of it is malloc. Tot, after 15 days of use, has a 269 MB footprint (not comparable: needs scrap measured after long use).
   - CPU: 0% idle.
   - Typing cost: every edit re-parses and restyles the whole pad. Warm, release: 2 KB 6 ms, 10 KB 32 ms, 50 KB 175 ms, 100 KB about 380 ms (styling is about 85% of it; parsing is cheap). Highlighting stops at 300 KB.
   - Done: restyle only what an edit touches (#51): a keystroke in a 100 KB pad went from about 380 ms to about 42 ms, the rest being the parse.
   - Done: footprint after use: window with a 200 KB pad about 64 MB; 40 open/close cycles of the editor, settings and search views and 300 pad switches show no growth (no leaks); search reads the pads once per opening, not per keystroke.
   - Decided against `-Osize`: 9% smaller binary (2.94 to 2.66 MB), no memory gain, risks slower highlighting.
-  - To do: parse incrementally too (the remaining 35 ms of a keystroke in a 100 KB pad); a CI benchmark with a budget.
+  - Decided against incremental parsing: it was correct (random-edit equivalence passed) but saved nothing, because rebuilding the span array after the edit costs as much as the parse (200 KB release: 52 ms vs 49 ms). A keystroke in a 100 KB pad stays at about 42 ms; a structural change (an index of spans per line) would be needed, not worth it.
+  - CI budget: the 100 KB typing test in IncrementalStyleTests fails if an edit restyles the whole pad.
+  - The empty line after a code block starting 8 pt in was fixed by the redraw/layout refresh in #53; a random-editing test now compares the live view's attributes and line layout with a from-scratch layout.
 - [ ] README demo GIF, screenshots, repo topics/description, comparison line, CONTRIBUTING + issue templates, "good first issue" labels
 - [ ] Prebuilt notarized .zip (needs a paid Apple Developer account: decide)
 - [ ] Launch posts (owner): Show HN, r/macapps, r/swift, r/opensource, Product Hunt, awesome-macos lists
