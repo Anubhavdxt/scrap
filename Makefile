@@ -4,7 +4,7 @@ SWIFTFLAGS ?=
 BUILD = build
 APP = $(BUILD)/Scrap.app
 
-.PHONY: build app install uninstall test clean icons
+.PHONY: build app install uninstall test clean icons demo
 
 build:
 	swift build -c release $(SWIFTFLAGS)
@@ -42,3 +42,9 @@ test:
 
 clean:
 	rm -rf .build $(BUILD)
+
+# Regenerates the README screenshots and demo GIF from the real app views (needs Pillow).
+demo:
+	rm -rf $(BUILD)/demo
+	SCRAP_DEMO_DIR=$(CURDIR)/$(BUILD)/demo swift test --filter DemoAssetsTests
+	python3 scripts/make_demo.py $(BUILD)/demo docs
