@@ -35,19 +35,21 @@ struct SearchView: View {
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
                         if search.result.isClosest {
                             Text("Closest matches").font(.caption).foregroundStyle(.secondary)
                                 .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 2)
                         }
                         ForEach(Array(search.result.hits.enumerated()), id: \.element.id) { index, hit in
                             row(hit, selected: index == search.selection)
-                                .id(index)
+                                .id(hit.id)
                                 .onTapGesture { search.selection = index; activate() }
                         }
                     }
                 }
-                .onChange(of: search.selection) { _, new in proxy.scrollTo(new) }
+                .onChange(of: search.selection) { _, new in
+                    if search.result.hits.indices.contains(new) { proxy.scrollTo(search.result.hits[new].id) }
+                }
             }
             .frame(maxHeight: 240)
         }
