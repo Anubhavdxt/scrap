@@ -72,36 +72,31 @@ final class PadSearchTests: XCTestCase {
         XCTAssertEqual(r.hits[0].line, 2)
     }
 
-    func testLongLinesAreCroppedAroundTheMatch() {
-        let line = String(repeating: "lorem ipsum ", count: 20) + "needle" + String(repeating: " dolor", count: 30)
-        let hit = search("needle", [line]).hits[0]
-        XCTAssertLessThan(hit.text.count, 120)
-        XCTAssertTrue(hit.text.hasPrefix("…"))
-        XCTAssertTrue(hit.text.hasSuffix("…"))
-        let m = hit.matches[0]
-        XCTAssertEqual((hit.text as NSString).substring(with: m), "needle")
-    }
-
     func testIndentationIsTrimmedAndMatchRangesFollow() {
         let hit = search("milk", ["    - buy milk"]).hits[0]
         XCTAssertEqual(hit.text, "- buy milk")
         XCTAssertEqual((hit.text as NSString).substring(with: hit.matches[0]), "milk")
     }
 
-    func testContextIsTheNextLineWithText() {
-        let r = search("needle", ["intro\nthe needle\n\n  after it  \nlast"])
-        XCTAssertEqual(r.hits[0].context, "after it")
+    func testSnippetRunsAcrossLineBreaksAndCollapsesWhitespace() {
+        let hit = search("needle", ["before it\n\n   the needle here\nand after"]).hits[0]
+        XCTAssertEqual(hit.text, "before it the needle here and after")
+        XCTAssertEqual((hit.text as NSString).substring(with: hit.matches[0]), "needle")
+        XCTAssertEqual(hit.line, 3)
     }
 
-    func testContextFallsBackToThePreviousLine() {
-        XCTAssertEqual(search("needle", ["before\nthe needle"]).hits[0].context, "before")
-        XCTAssertEqual(search("needle", ["needle"]).hits[0].context, "")
+    func testSnippetIsCroppedWithEllipses() {
+        let text = String(repeating: "lorem ipsum ", count: 20) + "needle" + String(repeating: " dolor", count: 30)
+        let hit = search("needle", [text]).hits[0]
+        XCTAssertTrue(hit.text.hasPrefix("…"))
+        XCTAssertTrue(hit.text.hasSuffix("…"))
+        XCTAssertLessThan(hit.text.count, 140)
+        XCTAssertEqual((hit.text as NSString).substring(with: hit.matches[0]), "needle")
     }
 
-    func testLongContextIsCropped() {
-        let r = search("needle", ["needle\n" + String(repeating: "word ", count: 40)])
-        XCTAssertLessThanOrEqual(r.hits[0].context.count, 91)
-        XCTAssertTrue(r.hits[0].context.hasSuffix("…"))
+    func testAllMatchesOnTheLineAreMarkedInTheSnippet() {
+        let hit = search("milk eggs", ["buy milk and eggs\nmore"]).hits[0]
+        XCTAssertEqual(hit.matches.map { (hit.text as NSString).substring(with: $0) }, ["milk", "eggs"])
     }
 
     func testEditDistance() {

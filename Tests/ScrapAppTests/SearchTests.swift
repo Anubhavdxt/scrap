@@ -102,3 +102,36 @@ final class SearchTests: XCTestCase {
         XCTAssertEqual(cancelled, 1)
     }
 }
+
+@MainActor
+final class SearchModelTests: XCTestCase {
+    private let pads: [(number: Int, text: String)] = [(1, "https://x.com/watch?v=abc\nvisualize the data"), (2, "other")]
+
+    func testOnlyTheLatestQueryIsShown() async {
+        let m = SearchModel(pads: { self.pads })
+        for ch in "visualize" { m.query.append(ch) }
+        await m.settle()
+        XCTAssertEqual(m.result.hits.map(\.pad), [1])
+        XCTAssertEqual(m.result.hits[0].line, 2)
+    }
+
+    func testNoMatchesClearsEarlierResults() async {
+        let m = SearchModel(pads: { self.pads })
+        m.query = "v"
+        await m.settle()
+        XCTAssertFalse(m.result.hits.isEmpty)
+        m.query = "vzzzzzzz"
+        await m.settle()
+        XCTAssertTrue(m.result.hits.isEmpty)
+    }
+
+    func testBlankQueryClearsAndSelectionStaysInRange() async {
+        let m = SearchModel(pads: { self.pads })
+        m.query = "e"
+        await m.settle()
+        m.move(5); XCTAssertEqual(m.selection, m.result.hits.count - 1)
+        m.move(-9); XCTAssertEqual(m.selection, 0)
+        m.query = "  "
+        XCTAssertEqual(m.result, .empty)
+    }
+}

@@ -4,17 +4,19 @@ import SwiftUI
 /// ⌘K / ⌘F: search the text of every pad.
 struct SearchView: View {
     @ObservedObject var model: EditorModel
-    @State private var query = ""
-    @State private var result = SearchResult.empty
-    @State private var selection = 0
-    @State private var task: Task<Void, Never>?
+    @StateObject private var search: SearchModel
+
+    init(model: EditorModel) {
+        self.model = model
+        _search = StateObject(wrappedValue: SearchModel(pads: { model.padTexts() }))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                SearchField(text: $query, placeholder: "Search all pads",
-                            onMove: move, onSubmit: activate, onCancel: { model.showSearch = false })
+                SearchField(text: $search.query, placeholder: "Search all pads",
+                            onMove: search.move, onSubmit: activate, onCancel: { model.showSearch = false })
                     .frame(height: 22)
             }
             .padding(12)
@@ -23,30 +25,29 @@ struct SearchView: View {
         }
         .frame(width: 380)
         .fixedSize(horizontal: false, vertical: true)
-        .onChange(of: query) { _, _ in search() }
     }
 
     @ViewBuilder private var content: some View {
-        if query.trimmingCharacters(in: .whitespaces).isEmpty {
+        if search.isBlank {
             note("Type to search every pad")
-        } else if result.hits.isEmpty {
+        } else if search.result.hits.isEmpty {
             note("No matches")
         } else {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        if result.isClosest {
+                        if search.result.isClosest {
                             Text("Closest matches").font(.caption).foregroundStyle(.secondary)
                                 .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 2)
                         }
-                        ForEach(Array(result.hits.enumerated()), id: \.element.id) { index, hit in
-                            row(hit, selected: index == selection)
+                        ForEach(Array(search.result.hits.enumerated()), id: \.element.id) { index, hit in
+                            row(hit, selected: index == search.selection)
                                 .id(index)
-                                .onTapGesture { selection = index; activate() }
+                                .onTapGesture { search.selection = index; activate() }
                         }
                     }
                 }
-                .onChange(of: selection) { _, new in proxy.scrollTo(new) }
+                .onChange(of: search.selection) { _, new in proxy.scrollTo(new) }
             }
             .frame(maxHeight: 240)
         }
@@ -59,12 +60,7 @@ struct SearchView: View {
     private func row(_ hit: SearchHit, selected: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Circle().fill(PadColors.color(for: hit.pad)).frame(width: 8, height: 8).padding(.top, 5).help("Pad \(hit.pad)")
-            VStack(alignment: .leading, spacing: 2) {
-                Text(highlighted(hit)).lineLimit(1)
-                if !hit.context.isEmpty {
-                    Text(hit.context).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                }
-            }
+            Text(highlighted(hit)).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
         .font(.system(size: 13))
@@ -86,27 +82,7 @@ struct SearchView: View {
         return text
     }
 
-    private func move(_ delta: Int) {
-        guard !result.hits.isEmpty else { return }
-        selection = min(max(selection + delta, 0), result.hits.count - 1)
-    }
-
     private func activate() {
-        guard result.hits.indices.contains(selection) else { return }
-        model.openResult(result.hits[selection])
-    }
-
-    /// Searches off the main thread, dropping a search that has been overtaken by more typing.
-    private func search() {
-        task?.cancel()
-        let q = query
-        guard !q.trimmingCharacters(in: .whitespaces).isEmpty else { result = .empty; selection = 0; return }
-        let pads = model.padTexts()
-        task = Task {
-            let found = await Task.detached(priority: .userInitiated) { PadSearch.search(q, in: pads) }.value
-            if Task.isCancelled { return }
-            result = found
-            selection = 0
-        }
+        if let hit = search.selected { model.openResult(hit) }
     }
 }
