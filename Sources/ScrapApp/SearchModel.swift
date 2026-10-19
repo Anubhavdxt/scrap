@@ -12,6 +12,8 @@ final class SearchModel: ObservableObject {
     @Published var selection = 0
 
     private let pads: () -> [(number: Int, text: String)]
+    /// The pads are read once, when the first query is typed, not on every keystroke.
+    private var snapshot: [(number: Int, text: String)]?
     private var generation = 0
     private var task: Task<Void, Never>?
 
@@ -35,7 +37,8 @@ final class SearchModel: ObservableObject {
         let mine = generation
         let q = query
         guard !isBlank else { result = .empty; selection = 0; return }
-        let texts = pads()
+        let texts = snapshot ?? pads()
+        snapshot = texts
         task = Task { [weak self] in
             let found = await Task.detached(priority: .userInitiated) { PadSearch.search(q, in: texts) }.value
             guard let self, !Task.isCancelled, mine == self.generation else { return }

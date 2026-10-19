@@ -115,6 +115,15 @@ final class SearchModelTests: XCTestCase {
         XCTAssertEqual(m.result.hits[0].line, 2)
     }
 
+    func testPadsAreReadOnceNotOnEveryKeystroke() async {
+        var reads = 0
+        let m = SearchModel(pads: { reads += 1; return self.pads })
+        for ch in "visualize" { m.query.append(ch) }
+        await m.settle()
+        XCTAssertEqual(reads, 1)
+        XCTAssertFalse(m.result.hits.isEmpty)
+    }
+
     func testNoMatchesClearsEarlierResults() async {
         let m = SearchModel(pads: { self.pads })
         m.query = "v"
