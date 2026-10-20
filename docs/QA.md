@@ -96,3 +96,4 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] The top bar has a magnifier button (before the pin and the gear): it opens the search panel, tooltip "Search all pads (⌘K)"
 - [ ] Settings > Editor: the font family and size share one row, and the reset arrow appears when the size is not the default and is not clipped
 - [ ] Settings tabs: hovering and selecting a tab gives tiles of exactly the same size, for every tab; the key hints in Settings > Editor list search, previous/next pad, go to pad, settings and close (no clear)
+- [ ] `scrap uninstall` (Homebrew install): asks to confirm (or `--yes`), removes the Applications link first, then runs `brew uninstall scrap`; no dead link is left; your pads and settings are untouched; run from a `make install` copy or a build folder it refuses with a message and changes nothing; a real `Scrap.app` in Applications is left alone

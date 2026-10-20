@@ -21,7 +21,8 @@ class Scrap < Formula
         scrap link
         open -a Scrap
 
-      Run `scrap unlink` before `brew uninstall scrap` to remove that link.
+      To uninstall, run `scrap uninstall`: it removes that link and then runs
+      `brew uninstall scrap`. (Your pads are never touched.)
 
       Pads live in iCloud Drive/scrap (or ~/Documents/scrap). Change that in
       ~/.config/scrap/config.json:  { "folder": "~/notes", "pads": 7 }
