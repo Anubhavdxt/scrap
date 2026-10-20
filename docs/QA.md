@@ -27,10 +27,10 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Opens at the size set in Settings > General (columns × rows) and resizes live when it changes
 
 ## Detached window, Dock icon
-- [ ] The pin turns the popover into a window of the same size; the pin shows filled and attaches it back; position and size are remembered across hides and relaunches
+- [ ] Dragging the popover down (or anywhere) by its top bar pulls it off the menu bar icon into a window with its top bar under the pointer, and the drag keeps moving the window; a click or a tiny wobble on the top bar does nothing; the pin turns the popover into a window of the same size; the pin shows filled and attaches it back; position and size are remembered across hides and relaunches
 - [ ] The top bar's ×, ⌘W and (with the setting) Esc hide the window without losing text; the hotkey, the menu bar icon and the Dock icon bring it back
 - [ ] The window has no macOS red/yellow/green buttons and no extra title strip, only the top bar with its × (like Tot); dragging the empty part of the top bar moves it; edges resize it, with a sensible minimum; it has rounded corners and a shadow
-- [ ] Settings > General: "Show in" Menu bar / Dock / Both. Dock-only: no menu bar icon, the window opens at launch, no pin, "Open as a window" is on and greyed out. Both: Dock icon and menu bar icon; the menu bar icon opens the popover or window per the pin. Menu bar: no Dock icon
+- [ ] Settings > General: "Show in" Menu bar / Dock / Both. Dock-only: no menu bar icon, the window opens at launch, no pin. Both: Dock icon and menu bar icon; the menu bar icon opens the popover or window per the pin. Menu bar: no Dock icon
 - [ ] With a Dock icon the real menu bar shows scrap's menus (Edit, Format, View) and ⌘Q quits; clicking the Dock icon shows the editor
 - [ ] "Keep the window above other windows" floats it; switching between popover and window while open keeps the text and caret
 - [ ] Settings > General > "Hotkey opens at the pointer" (window mode): the hotkey puts the window's top bar under the mouse, on the screen the mouse is on, kept clear of the menu bar and Dock; with it off the window comes back where it was; it has no effect on the popover
@@ -92,6 +92,6 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Settings > Appearance > "Show the pad number in its dot": digits readable in every dot, current dot included (two digits for pad 10+)
 - [ ] Settings > Appearance > "Vibrant" lets the desktop show through blurred, in the popover and the window; text stays readable on light and dark themes
 - [ ] Colour codes: `#0352BF` and `#FF000080` become chips with readable text; `#123` and `page#abc123` do not; `#0af` only inside backticks; Settings > Editor > "Colour chips for #0352BF" turns them off
-- [ ] Detached editor window: settings opens as a window of its own beside the editor (right, or left when there is no room), has a close button at the top left, does not close when you click the editor or elsewhere, closes with Esc when it has the keyboard, with ⌘, again, and when the editor window is hidden; the popover editor still opens settings as a popover that closes on a click away
+- [ ] Detached editor window: settings opens as a window of its own beside the editor (right, or left when there is no room), has a close button at the top left of its tab bar (the tabs stay centred), does not close when you click the editor or elsewhere, closes with Esc when it has the keyboard, with ⌘, again, and when the editor window is hidden; the popover editor still opens settings as a popover that closes on a click away
 - [ ] The top bar has a magnifier button (before the pin and the gear): it opens the search panel, tooltip "Search all pads (⌘K)"
 - [ ] Settings > Editor: the font family and size share one row, and the reset arrow appears when the size is not the default and is not clipped

@@ -4,9 +4,7 @@ import SwiftUI
 
 /// Settings pane shown in a popover attached to the gear. Uses the selected editor theme.
 struct SettingsView: View {
-    static let size = CGSize(width: 440, height: 412)
-    /// As a window of its own it has a strip on top, like the editor's top bar, with the close button at the left.
-    static let windowedSize = CGSize(width: 440, height: 412 + 34)
+    static let size = CGSize(width: 440, height: 410)
 
     /// Four tabs, like Tot's: what you will touch most, how it looks, how it edits, and a page about scrap.
     private enum Tab: String, CaseIterable, Identifiable {
@@ -43,7 +41,6 @@ struct SettingsView: View {
     @AppStorage("allowURLAdd") private var allowURLAdd = true
     @AppStorage("escCloses") private var escCloses = true
     @AppStorage("iconMode") private var iconMode = IconMode.menuBar
-    @AppStorage("detached") private var detached = false
     @AppStorage("windowFloating") private var windowFloating = false
     @AppStorage("windowFollowsPointer") private var windowFollowsPointer = false
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
@@ -65,31 +62,8 @@ struct SettingsView: View {
     private var dim: Color { Color(nsColor: NSColor(hex: theme.color(.comment))) }
     private var accent: Color { Color(nsColor: NSColor(hex: theme.accent)) }
 
-    /// The top strip of the settings window: the close button in the corner, as in the editor window.
-    private var titleStrip: some View {
-        ZStack {
-            Text("Settings").font(.system(size: 12, weight: .medium)).foregroundStyle(dim)
-            HStack {
-                Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
-                    Image(systemName: "xmark.circle").font(.system(size: 16))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(dim)
-                .help("Close settings")
-                Spacer()
-            }
-            .padding(.horizontal, 10)
-        }
-        .frame(height: 34)
-        .background(WindowDragHandle())
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            if windowed {
-                titleStrip
-                Divider().opacity(0.6)
-            }
             tabBar
             Divider().opacity(0.6)
             ScrollView {
@@ -106,6 +80,8 @@ struct SettingsView: View {
                 .id(tab)
                 .transition(.opacity)
             }
+            Divider().opacity(0.6)
+            footer
         }
         .background { tabShortcuts }
         .frame(width: Self.size.width, height: height)
@@ -116,7 +92,26 @@ struct SettingsView: View {
 
     // MARK: Tabs
 
+    /// The tabs sit in the middle of the bar; in its own window the pane has a close button in the corner, as Tot's does.
     private var tabBar: some View {
+        ZStack(alignment: .topLeading) {
+            tabButtons.padding(.horizontal, windowed ? 34 : 0)
+            if windowed {
+                Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
+                    Image(systemName: "xmark.circle").font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(dim)
+                .help("Close settings")
+                .padding(.leading, 10).padding(.top, 10)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.black.opacity(theme.isDark ? 0.18 : 0.05))
+    }
+
+    private var tabButtons: some View {
         HStack(spacing: 2) {
 
             ForEach(Tab.allCases) { t in
@@ -140,8 +135,28 @@ struct SettingsView: View {
                 .help(t.rawValue)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+    }
+
+    /// Version on the left, who made it on the right: the same two things Tot's footer carries, a bit friendlier.
+    private var footer: some View {
+        HStack {
+            Text("SCRAP \(Scrap.version)").font(.system(size: 10, weight: .medium)).tracking(0.8).foregroundStyle(dim)
+                .textSelection(.enabled)
+            Spacer()
+            Button { open("https://github.com/Anubhavdxt") } label: {
+                HStack(spacing: 4) {
+                    Text("made by Anubhav")
+                    Image(systemName: "heart.fill").font(.system(size: 8)).foregroundStyle(PadColors.color(for: 1))
+                }
+                .font(.system(size: 10.5))
+                .foregroundStyle(dim)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("github.com/Anubhavdxt")
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 30)
         .background(Color.black.opacity(theme.isDark ? 0.18 : 0.05))
     }
 
@@ -208,9 +223,6 @@ struct SettingsView: View {
             row("Show or hide") { ShortcutRecorder(accent: accent, dim: dim) }
             if let error = hotkeys.error { note(error).foregroundStyle(.red) }
             checks {
-                Toggle("Open as a window", isOn: Binding(get: { detached || iconMode == .dock }, set: { detached = $0 }))
-                    .disabled(iconMode == .dock)
-                    .help(iconMode == .dock ? "With only a Dock icon, scrap opens as a window." : "Instead of a popover under the menu bar icon.")
                 Toggle("Keep above other windows", isOn: $windowFloating)
                 Toggle("Hotkey opens at the pointer", isOn: $windowFollowsPointer)
                 Toggle("Esc closes the window", isOn: $escCloses)
@@ -421,7 +433,7 @@ struct SettingsView: View {
                 }
                 .padding(16)
             }
-            .frame(height: 100)
+            .frame(height: 94)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 linkTile("star.fill", "Star on GitHub", "It helps others find it") { open("https://github.com/Anubhavdxt/scrap") }
@@ -436,13 +448,10 @@ struct SettingsView: View {
             } label: {
                 Label("Say hi", systemImage: "hand.wave").font(.system(size: 12, weight: .medium)).frame(maxWidth: .infinity)
             }
-            .controlSize(.large)
+            .controlSize(.regular)
 
-            VStack(spacing: 3) {
-                Text("Version \(Scrap.version) · free and open source (MIT)").font(.system(size: 11)).foregroundStyle(dim)
-                Text("Your pads are plain Markdown files. Nothing leaves your Mac.").font(.system(size: 11)).foregroundStyle(dim)
-            }
-            .frame(maxWidth: .infinity)
+            Text("Open source (MIT). Your pads are plain files; nothing leaves your Mac.").font(.system(size: 11)).foregroundStyle(dim)
+                .frame(maxWidth: .infinity)
         }
     }
 

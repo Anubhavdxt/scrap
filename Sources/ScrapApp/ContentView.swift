@@ -175,7 +175,7 @@ struct TopBar: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 34)
-        .background { if windowed { WindowDragHandle() } }
+        .background { if windowed { WindowDragHandle() } else if canAttach { DetachDragHandle() } }
     }
 }
 
@@ -186,6 +186,31 @@ struct WindowDragHandle: NSViewRepresentable {
     }
     func makeNSView(context: Context) -> NSView { DragView() }
     func updateNSView(_ view: NSView, context: Context) {}
+}
+
+/// Dragging the popover by its top bar pulls it off the menu bar icon into a window, as Tot's does.
+struct DetachDragHandle: NSViewRepresentable {
+    final class DragView: NSView {
+        private var start: NSPoint?
+        private var fired = false
+        override func mouseDown(with event: NSEvent) { start = NSEvent.mouseLocation; fired = false }
+        override func mouseUp(with event: NSEvent) { start = nil }
+        override func mouseDragged(with event: NSEvent) {
+            guard !fired, let start, DetachDrag.shouldDetach(from: start, to: NSEvent.mouseLocation) else { return }
+            fired = true
+            NotificationCenter.default.post(name: .detachDrag, object: event)
+        }
+    }
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ view: NSView, context: Context) {}
+}
+
+/// When a press-and-drag on the popover's top bar has gone far enough to count as pulling it off.
+enum DetachDrag {
+    static let distance: CGFloat = 8
+    static func shouldDetach(from start: NSPoint, to current: NSPoint) -> Bool {
+        hypot(current.x - start.x, current.y - start.y) >= distance
+    }
 }
 
 struct PadDots: View {

@@ -9,6 +9,8 @@ extension Notification.Name {
     static let toggleSettings = Notification.Name("scrap.toggleSettings")
     static let editorCommand = Notification.Name("scrap.editorCommand")
     static let toggleDetach = Notification.Name("scrap.toggleDetach")
+    /// The popover's top bar was dragged: turn the popover into a window under the pointer. `object` is the drag event.
+    static let detachDrag = Notification.Name("scrap.detachDrag")
     static let insertSymbol = Notification.Name("scrap.insertSymbol")
     static let toggleSymbols = Notification.Name("scrap.toggleSymbols")
     static let revealRange = Notification.Name("scrap.revealRange")
@@ -86,6 +88,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             center.addObserver(forName: NSPopover.willCloseNotification, object: pop, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.updateClickMonitors() }
             }
+        }
+        center.addObserver(forName: .detachDrag, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.detachByDrag() }
         }
         center.addObserver(forName: .toggleSymbols, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.toggleSymbols() }
@@ -174,6 +179,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showPopover()
             if hadSettings { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.presentSettings() } }
         }
+    }
+
+    /// The top bar of the popover was dragged away from the menu bar icon: the editor becomes a window with its top bar
+    /// under the pointer, and the drag carries on moving that window.
+    private func detachByDrag() {
+        guard policy.canAttach, !policy.usesWindow else { return }
+        let pointer = NSEvent.mouseLocation
+        UserDefaults.standard.set(true, forKey: "detached")   // applyPolicy swaps the popover for the window
+        windowController.show(near: pointer)
+        guard let window = windowController.window,
+              let press = NSEvent.mouseEvent(with: .leftMouseDown, location: window.convertPoint(fromScreen: pointer), modifierFlags: [],
+                                             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                                             context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else { return }
+        window.performDrag(with: press)
     }
 
     private func toggleDetach() {
