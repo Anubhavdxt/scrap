@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// "Vibrant background": the theme's colours are drawn partly see-through over a blurred view of what is behind the
+/// "Vibrant background": the editor body is drawn partly see-through over a blurred view of what is behind the
 /// window, so the desktop shows through softly. Text stays fully opaque.
 enum Vibrancy {
     /// How much of the theme's background colour is kept when vibrant.

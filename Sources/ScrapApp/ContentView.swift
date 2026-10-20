@@ -43,7 +43,7 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             TopBar(model: model)
-                .background(Color(nsColor: Vibrancy.background(NSColor(hex: theme.background), vibrant: vibrant)))
+                .background(Color(nsColor: NSColor(hex: theme.background)))   // solid: only the editor is see-through
             Divider()
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
                        colorHighlights: colorHighlights, colorChips: colorChips, markers: markers, rendered: rendered,
@@ -71,7 +71,7 @@ struct ContentView: View {
     private var footerBackground: Color {
         let base = NSColor(hex: theme.background)
         let tinted = FooterTint.color(background: base, pad: PadColors.nsColor(for: model.pad.number), strength: theme.isDark ? 0.18 : 0.14)
-        return Color(nsColor: Vibrancy.background(tinted, vibrant: vibrant))
+        return Color(nsColor: tinted)   // solid, like the top bar
     }
 
     private func refocus() {
