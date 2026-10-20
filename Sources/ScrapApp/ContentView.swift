@@ -21,6 +21,8 @@ func resolveTheme(family: String, appearance: Appearance, colorScheme: ColorSche
 }
 
 struct ContentView: View {
+    /// Blur radius, in points, of the editor behind an open search panel.
+    static let searchBlur: CGFloat = 1.2
     @ObservedObject var model: EditorModel
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
@@ -46,12 +48,15 @@ struct ContentView: View {
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
                        colorHighlights: colorHighlights, colorChips: colorChips, markers: markers, rendered: rendered,
                        selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection, customBullets: customBullets,
-                       vibrant: vibrant)
+                       vibrant: vibrant, blur: model.showSearch ? Self.searchBlur : 0)
             Divider()
             StatusLine(model: model)
                 .background(footerBackground)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A touch of blur on what is behind the search panel, so it reads as the thing in front.
+        .blur(radius: model.showSearch ? Self.searchBlur : 0)
+        .animation(.easeOut(duration: 0.15), value: model.showSearch)
         // In a window the content runs under the (empty, transparent) title strip, so the top bar is the only bar.
         .ignoresSafeArea(.container, edges: windowed ? .top : [])
         .background { if vibrant { VibrantBackdrop() } }

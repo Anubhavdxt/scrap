@@ -5,6 +5,8 @@ import SwiftUI
 /// Settings pane shown in a popover attached to the gear. Uses the selected editor theme.
 struct SettingsView: View {
     static let size = CGSize(width: 440, height: 412)
+    /// As a window of its own it has a strip on top, like the editor's top bar, with the close button at the left.
+    static let windowedSize = CGSize(width: 440, height: 412 + 34)
 
     /// Four tabs, like Tot's: what you will touch most, how it looks, how it edits, and a page about scrap.
     private enum Tab: String, CaseIterable, Identifiable {
@@ -63,8 +65,31 @@ struct SettingsView: View {
     private var dim: Color { Color(nsColor: NSColor(hex: theme.color(.comment))) }
     private var accent: Color { Color(nsColor: NSColor(hex: theme.accent)) }
 
+    /// The top strip of the settings window: the close button in the corner, as in the editor window.
+    private var titleStrip: some View {
+        ZStack {
+            Text("Settings").font(.system(size: 12, weight: .medium)).foregroundStyle(dim)
+            HStack {
+                Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
+                    Image(systemName: "xmark.circle").font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(dim)
+                .help("Close settings")
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+        }
+        .frame(height: 34)
+        .background(WindowDragHandle())
+    }
+
     var body: some View {
         VStack(spacing: 0) {
+            if windowed {
+                titleStrip
+                Divider().opacity(0.6)
+            }
             tabBar
             Divider().opacity(0.6)
             ScrollView {
@@ -93,15 +118,7 @@ struct SettingsView: View {
 
     private var tabBar: some View {
         HStack(spacing: 2) {
-            if windowed {
-                Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
-                    Image(systemName: "xmark.circle").font(.system(size: 16))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(dim)
-                .help("Close settings")
-                .padding(.leading, 6).padding(.trailing, 4)
-            }
+
             ForEach(Tab.allCases) { t in
                 let selected = tab == t
                 Button { select(t) } label: {

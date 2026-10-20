@@ -5,7 +5,7 @@ import SwiftUI
 /// window, so the desktop shows through softly. Text stays fully opaque.
 enum Vibrancy {
     /// How much of the theme's background colour is kept when vibrant.
-    static let backgroundAlpha: CGFloat = 0.72
+    static let backgroundAlpha: CGFloat = 0.6
 
     static func background(_ color: NSColor, vibrant: Bool) -> NSColor {
         vibrant ? color.withAlphaComponent(backgroundAlpha) : color
@@ -16,7 +16,7 @@ enum Vibrancy {
 struct VibrantBackdrop: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .underWindowBackground
+        view.material = .hudWindow   // keeps more of what is behind than .underWindowBackground, which washes it out
         view.blendingMode = .behindWindow
         view.state = .active
         return view

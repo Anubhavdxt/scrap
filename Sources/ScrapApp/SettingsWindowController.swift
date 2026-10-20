@@ -50,7 +50,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func ensureWindow() -> NSWindow {
         if let window { return window }
-        let window = NSWindow(contentRect: NSRect(origin: .zero, size: SettingsView.size), styleMask: [.titled, .closable, .fullSizeContentView],
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: SettingsView.windowedSize), styleMask: [.titled, .closable, .fullSizeContentView],
                               backing: .buffered, defer: false)
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -58,10 +58,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.collectionBehavior.insert(.moveToActiveSpace)
-        let host = NSHostingController(rootView: SettingsView(model: model).environment(\.scrapWindowed, true))
+        let host = NSHostingController(rootView: SettingsView(model: model, height: SettingsView.windowedSize.height).environment(\.scrapWindowed, true))
         host.sizingOptions = []
         window.contentViewController = host
-        window.setContentSize(SettingsView.size)
+        window.setContentSize(SettingsView.windowedSize)
         window.delegate = self
         window.title = "Settings"
         self.window = window

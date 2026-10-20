@@ -53,7 +53,7 @@ final class SettingsTabsTests: XCTestCase {
         for tab in Self.tabs {
             try render(tab: tab, height: SettingsView.size.height).representation(using: .png, properties: [:])!
                 .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab).png"))
-            try render(tab: tab, height: SettingsView.size.height, windowed: true).representation(using: .png, properties: [:])!
+            try render(tab: tab, height: SettingsView.windowedSize.height, windowed: true).representation(using: .png, properties: [:])!
                 .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab)-windowed.png"))
         }
     }
