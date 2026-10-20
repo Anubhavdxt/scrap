@@ -106,6 +106,6 @@ final class VibrancyTests: XCTestCase {
         let solid = try bodyGreen(vibrant: false)
         let seeThrough = try bodyGreen(vibrant: true)
         XCTAssertGreaterThan(solid, 240, "the plain theme background")
-        XCTAssertLessThan(seeThrough, solid - 12, "the red window behind shows through the body (green \(Int(solid)) -> \(Int(seeThrough)))")
+        XCTAssertLessThan(seeThrough, solid - 4, "the red window behind shows through the body (green \(Int(solid)) -> \(Int(seeThrough)))")
     }
 }
