@@ -208,3 +208,34 @@ final class EditorModelTests: XCTestCase {
         XCTAssertEqual(HelloStore().load(), [])
     }
 }
+
+@MainActor
+final class PadSteppingTests: XCTestCase {
+    func testNextAndPreviousWrapAroundTheShownPads() {
+        XCTAssertEqual(EditorModel.pad(from: 3, moving: 1, of: 7), 4)
+        XCTAssertEqual(EditorModel.pad(from: 7, moving: 1, of: 7), 1, "after the last comes the first")
+        XCTAssertEqual(EditorModel.pad(from: 1, moving: -1, of: 7), 7, "before the first comes the last")
+        XCTAssertEqual(EditorModel.pad(from: 1, moving: 1, of: 1), 1)
+        XCTAssertEqual(EditorModel.pad(from: 2, moving: -9, of: 7), 7, "a big step still wraps")
+        XCTAssertEqual(EditorModel.pad(from: 4, moving: 1, of: 0), 4, "no pads shown: stay")
+    }
+
+    func testStepOpensThePadAlongFromTheOpenOne() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-step-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("pads"), withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; UserDefaults.standard.removeObject(forKey: "lastPad"); try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 4), home: home)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        UserDefaults.standard.set(4, forKey: "lastPad")
+        let model = EditorModel()
+        XCTAssertEqual(model.pad.number, 4)
+        model.step(1)
+        XCTAssertEqual(model.pad.number, 1, "wraps from the last of 4")
+        model.step(-1)
+        XCTAssertEqual(model.pad.number, 4)
+        model.step(-1)
+        XCTAssertEqual(model.pad.number, 3)
+    }
+}

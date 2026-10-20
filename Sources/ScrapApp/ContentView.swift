@@ -86,6 +86,10 @@ struct ContentView: View {
         Group {
             Button("Search") { model.showSearch = true }.keyboardShortcut("k")
             Button("Find") { model.showSearch = true }.keyboardShortcut("f")
+            Button("Next Pad") { model.step(1) }.keyboardShortcut("]")
+            Button("Previous Pad") { model.step(-1) }.keyboardShortcut("[")
+            Button("Next Pad (Tab)") { model.step(1) }.keyboardShortcut(.tab, modifiers: .control)
+            Button("Previous Pad (Tab)") { model.step(-1) }.keyboardShortcut(.tab, modifiers: [.control, .shift])
             ForEach(1...min(model.padCount, 9), id: \.self) { n in
                 Button("Pad \(n)") { model.open(number: n) }
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)

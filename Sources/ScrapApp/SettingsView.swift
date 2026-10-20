@@ -120,12 +120,13 @@ struct SettingsView: View {
                 let selected = tab == t
                 Button { select(t) } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: t.icon).font(.system(size: 18, weight: .medium))
-                        Text(t.rawValue).font(.system(size: 11, weight: selected ? .semibold : .medium))
+                        // The same box for every icon, so the tiles don't differ with how tall each glyph is.
+                        Image(systemName: t.icon).font(.system(size: 18, weight: .medium)).frame(width: 26, height: 24)
+                        Text(t.rawValue).font(.system(size: 11, weight: selected ? .semibold : .medium)).frame(height: 14)
                     }
                     .foregroundStyle(selected ? accent : (hovered == t ? fg : dim))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .frame(height: 56)
                     .background(
                         RoundedRectangle(cornerRadius: 9)
                             .fill(selected ? accent.opacity(0.16) : (hovered == t ? fg.opacity(0.07) : .clear))
@@ -374,7 +375,7 @@ struct SettingsView: View {
     /// Keys worth knowing.
     private var keyHints: some View {
         HStack(spacing: 6) {
-            keyHint("⌘K", "search"); keyHint("⌘1–9", "pads"); keyHint("⇧⌘⌫", "clear"); keyHint("⌘,", "settings"); keyHint("Esc", "close")
+            keyHint("⌘K", "search"); keyHint("⌘[ ⌘]", "prev / next pad"); keyHint("⌘1–9", "go to pad"); keyHint("⌘,", "settings"); keyHint("Esc", "close")
         }
     }
 

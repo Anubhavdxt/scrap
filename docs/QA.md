@@ -57,7 +57,7 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 ## Pads
 - [ ] Pad dots: the open pad is a solid disc with a soft halo; a pad with text is a ring with a bold dot in the middle; an empty pad is a thin faint ring; hovering a dot grows it a little; the row doesn't shift when switching pads; the footer carries a tint of the open pad's colour in dark and light themes; it is always tinted (there is no setting for it)
 - [ ] The dots at the top: current is filled, pads with content show a centre dot, hovering shows a preview; clicking switches
-- [ ] ⌘1–⌘9 jump to pads; ⌘K or ⌘F opens search with the field already focused (type, ↑↓, Return opens the pad and selects the match, Esc closes); a typo ("recipie") still finds "recipe" under "Closest matches"
+- [ ] ⌘] and ⌘[ (and ⌃Tab, ⌃⇧Tab) go to the next and previous pad, wrapping from the last pad to the first and back, whatever the pad count; ⌘1–⌘9 jump to pads; ⌘K or ⌘F opens search with the field already focused (type, ↑↓, Return opens the pad and selects the match, Esc closes); a typo ("recipie") still finds "recipe" under "Closest matches"
 - [ ] ⇧⌘⌫ clears the pad after a confirmation (and Esc cancels it)
 - [ ] Changing the pad count in Settings hides and restores pads without losing text
 
@@ -95,3 +95,4 @@ Do not run `sudo make`: it leaves root-owned files in `build/` that break the ne
 - [ ] Detached editor window: settings opens as a window of its own beside the editor (right, or left when there is no room), has a close button at the top left of its tab bar (the tabs stay centred), does not close when you click the editor or elsewhere, closes with Esc when it has the keyboard, with ⌘, again, and when the editor window is hidden; the popover editor still opens settings as a popover that closes on a click away
 - [ ] The top bar has a magnifier button (before the pin and the gear): it opens the search panel, tooltip "Search all pads (⌘K)"
 - [ ] Settings > Editor: the font family and size share one row, and the reset arrow appears when the size is not the default and is not clipped
+- [ ] Settings tabs: hovering and selecting a tab gives tiles of exactly the same size, for every tab; the key hints in Settings > Editor list search, previous/next pad, go to pad, settings and close (no clear)
