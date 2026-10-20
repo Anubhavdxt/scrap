@@ -2,14 +2,24 @@
 
 # scrap
 
+<p align="center">
+  <a href="https://github.com/Anubhavdxt/scrap/releases/latest"><img src="https://img.shields.io/github/v/release/Anubhavdxt/scrap?label=release" alt="Latest release"></a>
+  <a href="https://github.com/Anubhavdxt/scrap/actions/workflows/ci.yml"><img src="https://github.com/Anubhavdxt/scrap/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-blue" alt="macOS 14 or later">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Anubhavdxt/scrap" alt="MIT license"></a>
+</p>
+
 A free, open-source scratchpad that lives in your Mac's menu bar. A fixed set of pads (7 by default), plain Markdown files, keyboard-first, themeable. Inspired by Tot, with no paid tier.
 
 <p align="center"><img src="docs/demo.gif" width="640" alt="Typing a note in scrap, then searching every pad"></p>
+
+    brew tap Anubhavdxt/scrap https://github.com/Anubhavdxt/scrap && brew install scrap && scrap link
 
 - **Plain files:** pads are `1.md` … `N.md` in a folder you choose, iCloud Drive by default. No account, no lock-in, nothing to export
 - **Pads and search:** numbered colour dots at the top; switch with `⌘1`–`⌘9`, or search the text of every pad with `⌘K` (a typo still finds the word)
 - **Live Markdown:** styled as you type, and the `#`, `**` and backticks hide away from the line you're editing. 9 themes in dark and light, per-language colours in code blocks, and colour codes like `#0352BF` shown as chips
 - **Raw view:** `⌥⌘R` shows the same colours with every mark visible
+- **Light:** a native Swift app with no web view and no Electron, roughly 25–60 MB of memory and no CPU when idle
 - **Bullets and tasks:** `- [ ]` tasks and smart bullets (○ ● □ ■ ▷ ▶ ☆ ★ and more, plus your own) flip between open and done when you click them
 - **Menu bar, Dock or both:** a popover, or a resizable window you can pin above other windows
 - **CLI:** `scrap add "buy milk"`, `pbpaste | scrap add -p 2`, `scrap show 2`, `scrap list`
@@ -97,6 +107,10 @@ Optional `~/.config/scrap/config.json`, shared by the app and the CLI:
     make demo    # regenerate the README screenshots and GIF (needs Pillow)
 
 Work happens on feature branches and is squash-merged by pull request. See [CONTRIBUTING.md](CONTRIBUTING.md) and [TODO.md](TODO.md).
+
+## Feedback and stars
+
+scrap is free, and stays free. If it's useful to you, a ⭐ on the repo helps other people find it. Bugs and ideas are welcome in [Issues](https://github.com/Anubhavdxt/scrap/issues) and [Discussions](https://github.com/Anubhavdxt/scrap/discussions).
 
 ## License
 
