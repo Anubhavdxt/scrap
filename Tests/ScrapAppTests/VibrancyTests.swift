@@ -62,4 +62,50 @@ final class VibrancyTests: XCTestCase {
         try NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent("vibrant.png"))
         window.close()
     }
+
+    /// The editor body, not only the top bar, lets the desktop show through: over a red window it is visibly pink.
+    func testTheEditorBodyShowsWhatIsBehindTheWindow() throws {
+        let backdrop = NSWindow(contentRect: NSRect(x: 100, y: 200, width: 700, height: 460), styleMask: [.borderless], backing: .buffered, defer: false)
+        backdrop.isReleasedWhenClosed = false
+        backdrop.backgroundColor = NSColor(srgbRed: 1, green: 0, blue: 0, alpha: 1)
+        backdrop.orderFront(nil)
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-vibtest-\(UUID().uuidString)")
+        let pads = home.appendingPathComponent("pads")
+        try FileManager.default.createDirectory(at: pads, withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer {
+            if let old { setenv("HOME", old, 1) }
+            ["sayHiDone", "themeFamily", "appearance", "vibrant"].forEach { UserDefaults.standard.removeObject(forKey: $0) }
+            backdrop.close(); try? FileManager.default.removeItem(at: home)
+        }
+        try Config.save(Config.File(folder: pads.path, pads: 7), home: home)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+        UserDefaults.standard.set("one", forKey: "themeFamily")
+        UserDefaults.standard.set("light", forKey: "appearance")
+        try "hi".write(to: pads.appendingPathComponent("1.md"), atomically: true, encoding: .utf8)
+
+        func bodyGreen(vibrant: Bool) throws -> Double {
+            UserDefaults.standard.set(vibrant, forKey: "vibrant")
+            let window = NSWindow(contentRect: NSRect(x: 160, y: 240, width: 460, height: 340), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.titlebarAppearsTransparent = true
+            window.isOpaque = !vibrant
+            window.backgroundColor = vibrant ? .clear : .windowBackgroundColor
+            window.appearance = NSAppearance(named: .aqua)
+            window.contentView = NSHostingView(rootView: ContentView(model: EditorModel()).environment(\.scrapWindowed, true))
+            window.makeKeyAndOrderFront(nil)
+            defer { window.close() }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.7))
+            let rect = CGRect(x: window.frame.minX, y: NSScreen.screens[0].frame.height - window.frame.maxY, width: window.frame.width, height: window.frame.height)
+            let image = try ScreenCapture.usable(CGWindowListCreateImage(rect, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution]))
+            let rep = NSBitmapImageRep(cgImage: image)
+            let c = try XCTUnwrap(rep.colorAt(x: rep.pixelsWide / 2 + 60, y: Int(Double(rep.pixelsHigh) * 0.45))?.usingColorSpace(.sRGB))
+            return Double(c.greenComponent) * 255
+        }
+        let solid = try bodyGreen(vibrant: false)
+        let seeThrough = try bodyGreen(vibrant: true)
+        XCTAssertGreaterThan(solid, 240, "the plain theme background")
+        XCTAssertLessThan(seeThrough, solid - 4, "the red window behind shows through the body (green \(Int(solid)) -> \(Int(seeThrough)))")
+    }
 }

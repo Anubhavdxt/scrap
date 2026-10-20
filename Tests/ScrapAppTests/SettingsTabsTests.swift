@@ -31,11 +31,11 @@ final class SettingsTabsTests: XCTestCase {
     }
 
     /// The pane drawn in a window of the given height.
-    private func render(tab: String, height: CGFloat) throws -> NSBitmapImageRep {
+    private func render(tab: String, height: CGFloat, windowed: Bool = false) throws -> NSBitmapImageRep {
         UserDefaults.standard.set(tab, forKey: "settingsTab")
         let model = EditorModel()
         let size = CGSize(width: SettingsView.size.width, height: height)
-        let view = NSHostingView(rootView: SettingsView(model: model, height: height).frame(width: size.width, height: size.height))
+        let view = NSHostingView(rootView: SettingsView(model: model, height: height).environment(\.scrapWindowed, windowed).frame(width: size.width, height: size.height))
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = view
@@ -53,14 +53,14 @@ final class SettingsTabsTests: XCTestCase {
         for tab in Self.tabs {
             try render(tab: tab, height: SettingsView.size.height).representation(using: .png, properties: [:])!
                 .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab).png"))
-            try render(tab: tab, height: 1100).representation(using: .png, properties: [:])!
-                .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab)-tall.png"))
+            try render(tab: tab, height: SettingsView.size.height, windowed: true).representation(using: .png, properties: [:])!
+                .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab)-windowed.png"))
         }
     }
 
     /// Where the lowest content of a tab ends, in points from the top (measured in a window tall enough to show it all).
     private func contentBottom(of tab: String) throws -> CGFloat {
-        let tall: CGFloat = 1100, footer: CGFloat = 0, top: CGFloat = 76
+        let tall: CGFloat = 1100, footer: CGFloat = 31, top: CGFloat = 76
         let rep = try render(tab: tab, height: tall)
         let scale = CGFloat(rep.pixelsHigh) / tall
         let width = rep.pixelsWide
@@ -82,7 +82,7 @@ final class SettingsTabsTests: XCTestCase {
 
     /// Each tab fits the pane without scrolling (collapsed sections stay collapsed).
     func testEveryTabFitsWithoutScrolling() throws {
-        let visibleBottom = SettingsView.size.height - 14   // a little room below the content
+        let visibleBottom = SettingsView.size.height - 31 - 14   // the footer, and a little room above it
         for tab in Self.tabs {
             let bottom = try contentBottom(of: tab)
             XCTAssertLessThanOrEqual(bottom, visibleBottom, "\(tab) runs to \(Int(bottom)) pt and the pane shows \(Int(visibleBottom)) pt of content")

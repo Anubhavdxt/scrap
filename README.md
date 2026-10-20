@@ -49,6 +49,7 @@ Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is bui
 |---|---|
 | Show or hide | `⌃⌥Space` (changeable in Settings) |
 | Search all pads · pad 1–9 | `⌘K` or `⌘F` · `⌘1` – `⌘9` |
+| Previous · next pad | `⌘[` · `⌘]` (or `⌃⇧Tab` · `⌃Tab`) |
 | Clear pad | `⇧⌘⌫` |
 | Bold · italic · strikethrough · code | `⌘B` · `⌘I` · `⇧⌘X` · `⌘E` |
 | Divider · make task · check | `⌃-` · `⌃8` · `⌘↩` |
@@ -61,7 +62,7 @@ A few things worth knowing:
 - Return continues a list (an empty item ends it) and keeps indentation; Tab and Shift-Tab indent.
 - Click a smart bullet or a task circle to flip it; ⌘Return does it from the keyboard. The `*` button in the footer opens a picker of bullets, dividers, arrows and symbols below the window.
 - URLs and `[text](url)` links are underlined; ⌘-click opens them.
-- The pin in the top bar turns the popover into a window. The footer tints with the open pad's colour, and shows counts for what you've selected.
+- Drag the popover by its top bar to turn it into a window; the pin then keeps the window above others, and the × brings back the dropdown. The footer tints with the open pad's colour, and shows counts for what you've selected.
 - Settings covers the shortcut, pad count and folder, theme, fonts, window size (in columns × rows), what shows in the menu bar and Dock, and launch at login.
 
 ## Configuration

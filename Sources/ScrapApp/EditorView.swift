@@ -32,6 +32,8 @@ struct EditorView: NSViewRepresentable {
     var customBullets = ""
     /// Draws the background partly see-through (the window shows a blurred backdrop).
     var vibrant = false
+    /// Gaussian blur radius for the whole editor (a touch of it sits behind the search panel). SwiftUI's `.blur` does not reach this AppKit view.
+    var blur: CGFloat = 0
 
     private static let maxHighlightLength = 300_000
 
@@ -108,6 +110,7 @@ struct EditorView: NSViewRepresentable {
     }
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.setBlur(blur, on: scroll)
         let tv = scroll.documentView as! NSTextView
         context.coordinator.parent = self
         if tv.string != text {
@@ -134,6 +137,21 @@ struct EditorView: NSViewRepresentable {
         var symbolObserver: NSObjectProtocol?
 
         init(_ parent: EditorView) { self.parent = parent }
+
+        private var appliedBlur: CGFloat = 0
+
+        func setBlur(_ radius: CGFloat, on scroll: NSScrollView) {
+            guard radius != appliedBlur else { return }
+            appliedBlur = radius
+            scroll.wantsLayer = true
+            scroll.layerUsesCoreImageFilters = true
+            if radius > 0, let filter = CIFilter(name: "CIGaussianBlur") {
+                filter.setValue(radius, forKey: kCIInputRadiusKey)
+                scroll.layer?.filters = [filter]
+            } else {
+                scroll.layer?.filters = nil
+            }
+        }
 
         /// Settles the layout of what is on screen and redraws it, after the styling changed line heights.
         func refreshDisplay(_ tv: NSTextView) {

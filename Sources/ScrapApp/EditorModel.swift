@@ -66,6 +66,17 @@ final class EditorModel: ObservableObject {
         open(target)
     }
 
+    /// The pad `delta` places along from the open one, wrapping round the pads that are shown (so with 7 pads, next after 7 is 1).
+    static func pad(from number: Int, moving delta: Int, of count: Int) -> Int {
+        guard count > 0 else { return number }
+        return ((number - 1 + delta) % count + count) % count + 1
+    }
+
+    /// ⌘] and ⌘[ (or ⌃Tab and ⌃⇧Tab): the next or previous pad.
+    func step(_ delta: Int) {
+        open(number: Self.pad(from: pad.number, moving: delta, of: padCount))
+    }
+
     func open(_ target: Pad) {
         flush()
         guard let content = try? store.read(target) else { return report("Couldn't open \(target.name)") }

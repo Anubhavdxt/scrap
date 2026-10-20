@@ -42,9 +42,13 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// Called when the window is hidden, so a settings window beside it goes too.
+    var onHide: (() -> Void)?
+
     func hide() {
         model.flush()
         window?.orderOut(nil)
+        onHide?()
     }
 
     /// Re-reads the always-on-top and light/dark settings.

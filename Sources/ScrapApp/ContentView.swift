@@ -21,6 +21,8 @@ func resolveTheme(family: String, appearance: Appearance, colorScheme: ColorSche
 }
 
 struct ContentView: View {
+    /// Blur radius, in points, of the editor behind an open search panel.
+    static let searchBlur: CGFloat = 1.2
     @ObservedObject var model: EditorModel
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
@@ -31,7 +33,6 @@ struct ContentView: View {
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("colorChips") private var colorChips = true
     @AppStorage("markers") private var markers = "hide"
-    @AppStorage("tintFooter") private var tintFooter = true
     @AppStorage("vibrant") private var vibrant = false
     @AppStorage("customBullets") private var customBullets = ""
     @Environment(\.colorScheme) private var colorScheme
@@ -42,17 +43,20 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             TopBar(model: model)
-                .background(Color(nsColor: Vibrancy.background(NSColor(hex: theme.background), vibrant: vibrant)))
+                .background(Color(nsColor: NSColor(hex: theme.background)))   // solid: only the editor is see-through
             Divider()
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
                        colorHighlights: colorHighlights, colorChips: colorChips, markers: markers, rendered: rendered,
                        selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection, customBullets: customBullets,
-                       vibrant: vibrant)
+                       vibrant: vibrant, blur: model.showSearch ? Self.searchBlur : 0)
             Divider()
             StatusLine(model: model)
                 .background(footerBackground)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A touch of blur on what is behind the search panel, so it reads as the thing in front.
+        .blur(radius: model.showSearch ? Self.searchBlur : 0)
+        .animation(.easeOut(duration: 0.15), value: model.showSearch)
         // In a window the content runs under the (empty, transparent) title strip, so the top bar is the only bar.
         .ignoresSafeArea(.container, edges: windowed ? .top : [])
         .background { if vibrant { VibrantBackdrop() } }
@@ -63,12 +67,11 @@ struct ContentView: View {
         .onChange(of: model.showSayHi) { _, open in if !open { refocus() } }
     }
 
-    /// The theme's background, with a little of the open pad's colour in it (Settings can turn that off).
+    /// The theme's background, with a little of the open pad's colour in it.
     private var footerBackground: Color {
         let base = NSColor(hex: theme.background)
-        guard tintFooter else { return Color(nsColor: Vibrancy.background(base, vibrant: vibrant)) }
         let tinted = FooterTint.color(background: base, pad: PadColors.nsColor(for: model.pad.number), strength: theme.isDark ? 0.18 : 0.14)
-        return Color(nsColor: Vibrancy.background(tinted, vibrant: vibrant))
+        return Color(nsColor: tinted)   // solid, like the top bar
     }
 
     private func refocus() {
@@ -83,6 +86,10 @@ struct ContentView: View {
         Group {
             Button("Search") { model.showSearch = true }.keyboardShortcut("k")
             Button("Find") { model.showSearch = true }.keyboardShortcut("f")
+            Button("Next Pad") { model.step(1) }.keyboardShortcut("]")
+            Button("Previous Pad") { model.step(-1) }.keyboardShortcut("[")
+            Button("Next Pad (Tab)") { model.step(1) }.keyboardShortcut(.tab, modifiers: .control)
+            Button("Previous Pad (Tab)") { model.step(-1) }.keyboardShortcut(.tab, modifiers: [.control, .shift])
             ForEach(1...min(model.padCount, 9), id: \.self) { n in
                 Button("Pad \(n)") { model.open(number: n) }
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: .command)
@@ -137,6 +144,7 @@ struct TopBar: View {
     @ObservedObject var model: EditorModel
     @Environment(\.scrapWindowed) private var windowed
     @AppStorage("iconMode") private var iconMode = IconMode.menuBar
+    @AppStorage("windowFloating") private var windowFloating = false
 
     private var canAttach: Bool { iconMode != .dock }
 
@@ -147,14 +155,18 @@ struct TopBar: View {
                 Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
                     Image(systemName: "xmark.circle")
                 }
-                .help(windowed ? "Hide the window" : "Close")
+                .help(windowed ? (canAttach ? "Close the window (back to the menu bar dropdown)" : "Hide the window") : "Close")
                 Spacer()
-                if canAttach {
-                    // Detach the popover into a window, or attach the window back to the menu bar icon.
-                    Button { NotificationCenter.default.post(name: .toggleDetach, object: nil) } label: {
-                        Image(systemName: windowed ? "pin.fill" : "pin")
+                Button { model.showSearch = true } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .help("Search all pads (⌘K)")
+                if windowed {
+                    // Keeps the window above other windows. (Dragging the popover's top bar is what turns it into a window.)
+                    Button { windowFloating.toggle() } label: {
+                        Image(systemName: windowFloating ? "pin.fill" : "pin")
                     }
-                    .help(windowed ? "Attach to the menu bar icon" : "Keep as a window")
+                    .help(windowFloating ? "Stop keeping this window above others" : "Keep this window above other windows")
                 }
                 Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
                     Image(systemName: "gearshape")
@@ -168,7 +180,7 @@ struct TopBar: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 34)
-        .background { if windowed { WindowDragHandle() } }
+        .background { if windowed { WindowDragHandle() } else if canAttach { DetachDragHandle() } }
     }
 }
 
@@ -179,6 +191,31 @@ struct WindowDragHandle: NSViewRepresentable {
     }
     func makeNSView(context: Context) -> NSView { DragView() }
     func updateNSView(_ view: NSView, context: Context) {}
+}
+
+/// Dragging the popover by its top bar pulls it off the menu bar icon into a window, as Tot's does.
+struct DetachDragHandle: NSViewRepresentable {
+    final class DragView: NSView {
+        private var start: NSPoint?
+        private var fired = false
+        override func mouseDown(with event: NSEvent) { start = NSEvent.mouseLocation; fired = false }
+        override func mouseUp(with event: NSEvent) { start = nil }
+        override func mouseDragged(with event: NSEvent) {
+            guard !fired, let start, DetachDrag.shouldDetach(from: start, to: NSEvent.mouseLocation) else { return }
+            fired = true
+            NotificationCenter.default.post(name: .detachDrag, object: event)
+        }
+    }
+    func makeNSView(context: Context) -> NSView { DragView() }
+    func updateNSView(_ view: NSView, context: Context) {}
+}
+
+/// When a press-and-drag on the popover's top bar has gone far enough to count as pulling it off.
+enum DetachDrag {
+    static let distance: CGFloat = 8
+    static func shouldDetach(from start: NSPoint, to current: NSPoint) -> Bool {
+        hypot(current.x - start.x, current.y - start.y) >= distance
+    }
 }
 
 struct PadDots: View {
@@ -308,7 +345,7 @@ struct GearAnchor: NSViewRepresentable {
     final class AnchorView: NSView {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if window != nil { SettingsAnchor.view = self }
+            if window != nil { SettingsAnchor.registry.register(self) }
         }
     }
 
@@ -321,7 +358,7 @@ struct SymbolButtonAnchor: NSViewRepresentable {
     final class AnchorView: NSView {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if window != nil { SymbolAnchor.view = self }
+            if window != nil { SymbolAnchor.registry.register(self) }
         }
     }
 
