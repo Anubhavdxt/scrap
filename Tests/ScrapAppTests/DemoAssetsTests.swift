@@ -48,9 +48,7 @@ final class DemoAssetsTests: XCTestCase {
 
     private func shot(_ window: NSWindow, _ name: String, to dir: String) throws {
         spin(0.25)
-        guard let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.bestResolution]) else {
-            throw XCTSkip("window capture is not available here")
-        }
+        let image = try ScreenCapture.usable(CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.bestResolution]))
         try NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
     }
 
@@ -74,7 +72,7 @@ final class DemoAssetsTests: XCTestCase {
         try write(1, """
         # Launch plan
 
-        Ship **scrap 0.2** this week, then tell people.
+        Ship **scrap 0.4** this week, then tell people.
 
         - [x] cut the release
         - [ ] write the README
