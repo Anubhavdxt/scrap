@@ -826,6 +826,9 @@ final class SmartBulletEditorTests: XCTestCase {
         let view = NSHostingView(rootView: ContentView(model: EditorModel()).frame(width: size.width, height: size.height))
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = view
+        window.isReleasedWhenClosed = false
+        window.orderFront(nil)   // anchors are only offered in a window that is showing
+        defer { window.close() }
         view.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.4))
         let anchor = try XCTUnwrap(SymbolAnchor.view, "the footer's * button registers itself")

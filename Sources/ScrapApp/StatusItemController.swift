@@ -30,14 +30,32 @@ final class SymbolRequest {
     func post() { NotificationCenter.default.post(name: .insertSymbol, object: self) }
 }
 
+/// Where a button registers itself so a popover can attach to it. The editor can exist twice (the popover's and the
+/// window's, each with its own gear and `*` button), so every one that has been put in a window is kept, and the one in
+/// a window that is showing is the one to attach to.
+final class AnchorRegistry {
+    private struct Weak { weak var view: NSView? }
+    private var entries: [Weak] = []
+
+    func register(_ view: NSView) {
+        entries.removeAll { $0.view == nil || $0.view === view }
+        entries.append(Weak(view: view))
+    }
+
+    /// The most recently added anchor whose window is on screen; none if no editor is showing.
+    var view: NSView? { entries.last { $0.view?.window?.isVisible == true }?.view }
+}
+
 /// The gear button registers itself here so the settings popover can attach to it.
 enum SettingsAnchor {
-    static weak var view: NSView?
+    static let registry = AnchorRegistry()
+    static var view: NSView? { registry.view }
 }
 
 /// The `*` footer button registers itself here so the symbol picker can open below it.
 enum SymbolAnchor {
-    static weak var view: NSView?
+    static let registry = AnchorRegistry()
+    static var view: NSView? { registry.view }
 }
 
 /// The editor's home. Depending on the Settings it is a popover hanging from the menu bar icon, or a normal window
@@ -361,12 +379,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         presentSettings()
     }
 
+    /// The editor window's content, only while that window is showing (a popover must never attach to a hidden window).
+    private var shownEditorView: NSView? { windowController.isVisible ? windowController.window?.contentView : nil }
+
     private func presentSettings() {
         if policy.usesWindow { return settingsWindowController.show(beside: windowController.window) }
         guard !settingsPopover.isShown else { return }
         let gear = SettingsAnchor.view.flatMap { $0.window?.isVisible == true ? $0 : nil }
-        guard let anchor = gear ?? windowController.window?.contentView ?? statusItem?.button else { return }
-        let rect = gear == nil && anchor === windowController.window?.contentView
+        guard let anchor = gear ?? shownEditorView ?? statusItem?.button else { return }
+        let rect = gear == nil && anchor === shownEditorView
             ? NSRect(x: anchor.bounds.maxX - 40, y: anchor.isFlipped ? 4 : anchor.bounds.maxY - 28, width: 24, height: 24)
             : anchor.bounds
         settingsPopover.show(relativeTo: rect, of: anchor, preferredEdge: .minY)
@@ -393,7 +414,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func presentSymbols() {
         guard !symbolPopover.isShown else { return }
         let button = SymbolAnchor.view.flatMap { $0.window?.isVisible == true ? $0 : nil }
-        guard let anchor = button ?? windowController.window?.contentView ?? popover.contentViewController?.view else { return }
+        guard let anchor = button ?? shownEditorView ?? popover.contentViewController?.view else { return }
         let rect = button == nil
             ? NSRect(x: anchor.bounds.maxX - 90, y: anchor.isFlipped ? anchor.bounds.maxY - 28 : 4, width: 24, height: 24)
             : anchor.bounds

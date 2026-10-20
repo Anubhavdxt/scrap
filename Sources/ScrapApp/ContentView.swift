@@ -345,7 +345,7 @@ struct GearAnchor: NSViewRepresentable {
     final class AnchorView: NSView {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if window != nil { SettingsAnchor.view = self }
+            if window != nil { SettingsAnchor.registry.register(self) }
         }
     }
 
@@ -358,7 +358,7 @@ struct SymbolButtonAnchor: NSViewRepresentable {
     final class AnchorView: NSView {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if window != nil { SymbolAnchor.view = self }
+            if window != nil { SymbolAnchor.registry.register(self) }
         }
     }
 
