@@ -10,7 +10,8 @@ usage: scrap <command>
   list                   list the pads with their first lines
   path                   print the pad folder
   link [--dir <folder>]  link Scrap.app into /Applications (after a Homebrew install)
-  unlink                 remove that link (run before `brew uninstall scrap`)
+  unlink                 remove that link
+  uninstall [-y]         remove the link, then `brew uninstall scrap` (your pads stay)
   --version, --help
 
 Without -p, add fills the last empty pad, or appends to the last pad if none is empty.
@@ -91,6 +92,28 @@ case "link", "unlink":
             case .alreadyLinked(let dest): print("already linked: \(dest.path)")
             }
         }
+    } catch { fail(error.localizedDescription) }
+case "uninstall":
+    let assumeYes = args.contains("-y") || args.contains("--yes")
+    let exe = URL(fileURLWithPath: Bundle.main.executablePath ?? CommandLine.arguments[0])
+    do {
+        let plan = try Uninstaller.plan(executable: exe)
+        if !assumeYes {
+            guard isatty(STDIN_FILENO) != 0 else { fail("run it from a terminal, or pass --yes") }
+            print("This removes the Scrap.app link in \(plan.applications.path) and runs `brew uninstall scrap`.\nYour pads and settings are not touched. If scrap is open, quit it first.\nContinue? [y/N] ", terminator: "")
+            guard let answer = readLine()?.lowercased(), answer == "y" || answer == "yes" else { print("cancelled"); exit(0) }
+        }
+        let report = try Uninstaller.run(plan) { brew, arguments in
+            let process = Process()
+            process.executableURL = brew
+            process.arguments = arguments
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus
+        }
+        if report.removedLink { print("removed the link from \(plan.applications.path)") }
+        if let path = report.leftRealApp { print("left \(path) alone: it is a real app, not a link") }
+        print("scrap is uninstalled. Your pads are still in \(Config.folder().path)")
     } catch { fail(error.localizedDescription) }
 case "path":
     print(Config.folder().path)

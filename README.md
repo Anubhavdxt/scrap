@@ -32,7 +32,7 @@ Requires macOS 14 or later.
     scrap link
     open -a Scrap
 
-`scrap link` links the app into `/Applications`. It only ever replaces its own link, never a real `Scrap.app`. Run `scrap unlink` before `brew uninstall scrap` to remove it.
+`scrap link` links the app into `/Applications`. It only ever replaces its own link, never a real `Scrap.app`. To remove everything, run `scrap uninstall`: it takes the link out and then runs `brew uninstall scrap` (your pads stay where they are). `scrap unlink` alone only removes the link.
 
 Needs the Xcode Command Line Tools (`xcode-select --install`). Because it is built on your Mac, there is no Gatekeeper warning.
 
