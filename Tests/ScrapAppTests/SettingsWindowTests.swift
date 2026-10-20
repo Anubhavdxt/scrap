@@ -46,7 +46,7 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(window.level, .floating)
         XCTAssertFalse(window.styleMask.contains(.resizable), "a fixed-size pane")
         XCTAssertEqual(window.contentLayoutRect.width, SettingsView.windowedSize.width, accuracy: 1)
-        XCTAssertEqual(window.contentLayoutRect.height, SettingsView.windowedSize.height, accuracy: 1, "the pane plus its top strip")
+        XCTAssertEqual(window.contentRect(forFrameRect: window.frame).height, SettingsView.windowedSize.height, accuracy: 1, "the pane plus its top strip")
         XCTAssertFalse(controller.windowShouldClose(window), "closing only hides it")
         XCTAssertFalse(controller.isVisible)
         window.close()
