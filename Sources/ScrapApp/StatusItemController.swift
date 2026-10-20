@@ -8,7 +8,6 @@ extension Notification.Name {
     static let closePopover = Notification.Name("scrap.closePopover")
     static let toggleSettings = Notification.Name("scrap.toggleSettings")
     static let editorCommand = Notification.Name("scrap.editorCommand")
-    static let toggleDetach = Notification.Name("scrap.toggleDetach")
     /// The popover's top bar was dragged: turn the popover into a window under the pointer. `object` is the drag event.
     static let detachDrag = Notification.Name("scrap.detachDrag")
     static let insertSymbol = Notification.Name("scrap.insertSymbol")
@@ -105,13 +104,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.closeTransient() }
         }
         center.addObserver(forName: .closePopover, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.closeAll() }
+            MainActor.assumeIsolated { self?.closeAndAttach() }
         }
         center.addObserver(forName: .toggleSettings, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.toggleSettings() }
-        }
-        center.addObserver(forName: .toggleDetach, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.toggleDetach() }
         }
 
         applyPolicy(initial: true)
@@ -193,11 +189,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                              timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
                                              context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else { return }
         window.performDrag(with: press)
-    }
-
-    private func toggleDetach() {
-        guard policy.canAttach else { return } // with only a Dock icon the editor is always a window
-        UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "detached"), forKey: "detached")
     }
 
     /// Applies the saved window size and light/dark choice.
@@ -331,6 +322,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.performClose(nil)
     }
 
+    /// The editor's close button (or Esc): closes everything, and a detached window goes back to being the dropdown
+    /// under the menu bar icon, which is how it opens by default. The hotkey and the icon only hide the window.
+    private func closeAndAttach() {
+        let wasWindow = policy.usesWindow
+        closeAll()
+        if wasWindow && policy.canAttach { UserDefaults.standard.set(false, forKey: "detached") }
+    }
+
     /// Closes everything, the editor window included.
     private func closeAll() {
         closeTransient()
@@ -426,7 +425,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard editorKey else { return event }
                 // "Escape closes the window" can be turned off in Settings > General.
                 guard UserDefaults.standard.object(forKey: "escCloses") as? Bool ?? true else { return event }
-                self.closeAll()
+                self.closeAndAttach()
                 return nil
             }
         }

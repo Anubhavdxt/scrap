@@ -1,4 +1,5 @@
 import XCTest
+import Vision
 import SwiftUI
 @testable import ScrapApp
 import ScrapCore
@@ -70,5 +71,37 @@ final class SettingsWindowTests: XCTestCase {
         editor.hide()
         XCTAssertFalse(settings.isVisible)
         editor.window?.close(); settings.window?.close()
+    }
+}
+
+@MainActor
+final class SettingsWindowLayoutTests: XCTestCase {
+    /// In its own window the pane must not sit under the (transparent) title bar: no empty band above the tabs, and the
+    /// footer fully inside the window.
+    func testTheFooterIsInsideTheSettingsWindow() throws {
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-setlayout-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: home.appendingPathComponent("pads"), withIntermediateDirectories: true)
+        let old = getenv("HOME").map { String(cString: $0) }
+        setenv("HOME", home.path, 1)
+        defer { if let old { setenv("HOME", old, 1) }; try? FileManager.default.removeItem(at: home) }
+        try Config.save(Config.File(folder: home.appendingPathComponent("pads").path, pads: 7), home: home)
+        UserDefaults.standard.set(true, forKey: "sayHiDone")
+
+        let controller = SettingsWindowController(model: EditorModel())
+        controller.show(beside: nil)
+        defer { controller.window?.close() }
+        let window = try XCTUnwrap(controller.window)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+        let image = try ScreenCapture.usable(CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution]))
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        try VNImageRequestHandler(cgImage: image).perform([request])
+        let observations = request.results ?? []
+        let lines = observations.compactMap { ($0.topCandidates(1).first?.string, $0.boundingBox) }
+        let texts = lines.compactMap(\.0)
+        XCTAssertTrue(texts.contains { $0.uppercased().contains("SCRAP 0.") }, "the footer's version text is drawn inside the window: \(texts)")
+        // The tab labels start close to the top of the window, not a title bar's height down.
+        let tabs = try XCTUnwrap(lines.first { ($0.0 ?? "").contains("General") }, "tabs not found: \(texts)")
+        XCTAssertGreaterThan(tabs.1.maxY, 0.82, "the tabs sit near the top of the window (maxY \(tabs.1.maxY))")
     }
 }

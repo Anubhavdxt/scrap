@@ -13,7 +13,7 @@ final class SearchBlurTests: XCTestCase {
         var steepest = 0.0, lowest = Double.infinity, highest = -Double.infinity
         for y in rows {
             var last: Double?
-            for x in 0..<rep.pixelsWide {
+            for x in 24..<(rep.pixelsWide - 24) {   // inside the window's edge, which is a sharp step to transparent
                 guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
                 let v = Double(c.redComponent + c.greenComponent + c.blueComponent) / 3
                 lowest = min(lowest, v); highest = max(highest, v)
@@ -53,17 +53,17 @@ final class SearchBlurTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(0.4))
         /// What is on screen (layer filters such as the blur only show in the composited window, not in `cacheDisplay`).
         func picture() throws -> NSBitmapImageRep {
-            guard let image = CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution]) else {
-                throw XCTSkip("window capture is not available here")
-            }
+            let image = try ScreenCapture.usable(CGWindowListCreateImage(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution]))
             return NSBitmapImageRep(cgImage: image)
         }
-        // Compare the text lines at the bottom of the pane, away from the search panel, which sits near the top.
-        let rows = Int(Double(size.height) * 0.62 * 2)...Int(Double(size.height) * 0.80 * 2)
-        let sharp = sharpness(try picture(), rows: rows)
+        let first = try picture()
+        // Text lines below the search panel (which sits near the top) and above the end of the text, whatever the scale.
+        let rows = Int(Double(first.pixelsHigh) * 0.47)...Int(Double(first.pixelsHigh) * 0.60)
+        let sharp = sharpness(first, rows: rows)
         model.showSearch = true
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))
-        let blurred = sharpness(try picture(), rows: rows)
+        let blurredPicture = try picture()
+        let blurred = sharpness(blurredPicture, rows: rows)
         XCTAssertLessThan(blurred, sharp * 0.8, "the text behind the search panel should be softer (sharpness \(sharp) -> \(blurred))")
         model.showSearch = false
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))

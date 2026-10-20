@@ -98,7 +98,7 @@ final class VibrancyTests: XCTestCase {
             defer { window.close() }
             RunLoop.main.run(until: Date().addingTimeInterval(0.7))
             let rect = CGRect(x: window.frame.minX, y: NSScreen.screens[0].frame.height - window.frame.maxY, width: window.frame.width, height: window.frame.height)
-            guard let image = CGWindowListCreateImage(rect, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution]) else { throw XCTSkip("screen capture is not available here") }
+            let image = try ScreenCapture.usable(CGWindowListCreateImage(rect, .optionOnScreenOnly, kCGNullWindowID, [.bestResolution]))
             let rep = NSBitmapImageRep(cgImage: image)
             let c = try XCTUnwrap(rep.colorAt(x: rep.pixelsWide / 2 + 60, y: Int(Double(rep.pixelsHigh) * 0.45))?.usingColorSpace(.sRGB))
             return Double(c.greenComponent) * 255

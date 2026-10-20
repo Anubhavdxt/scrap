@@ -85,6 +85,8 @@ struct SettingsView: View {
         }
         .background { tabShortcuts }
         .frame(width: Self.size.width, height: height)
+        // In a window the content runs under the transparent title bar, so the pane must not leave room for it.
+        .ignoresSafeArea(.container, edges: windowed ? .top : [])
         .foregroundStyle(fg)
         .tint(accent)
         .background(bg)

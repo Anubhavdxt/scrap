@@ -140,6 +140,7 @@ struct TopBar: View {
     @ObservedObject var model: EditorModel
     @Environment(\.scrapWindowed) private var windowed
     @AppStorage("iconMode") private var iconMode = IconMode.menuBar
+    @AppStorage("windowFloating") private var windowFloating = false
 
     private var canAttach: Bool { iconMode != .dock }
 
@@ -150,18 +151,18 @@ struct TopBar: View {
                 Button { NotificationCenter.default.post(name: .closePopover, object: nil) } label: {
                     Image(systemName: "xmark.circle")
                 }
-                .help(windowed ? "Hide the window" : "Close")
+                .help(windowed ? (canAttach ? "Close the window (back to the menu bar dropdown)" : "Hide the window") : "Close")
                 Spacer()
                 Button { model.showSearch = true } label: {
                     Image(systemName: "magnifyingglass")
                 }
                 .help("Search all pads (⌘K)")
-                if canAttach {
-                    // Detach the popover into a window, or attach the window back to the menu bar icon.
-                    Button { NotificationCenter.default.post(name: .toggleDetach, object: nil) } label: {
-                        Image(systemName: windowed ? "pin.fill" : "pin")
+                if windowed {
+                    // Keeps the window above other windows. (Dragging the popover's top bar is what turns it into a window.)
+                    Button { windowFloating.toggle() } label: {
+                        Image(systemName: windowFloating ? "pin.fill" : "pin")
                     }
-                    .help(windowed ? "Attach to the menu bar icon" : "Keep as a window")
+                    .help(windowFloating ? "Stop keeping this window above others" : "Keep this window above other windows")
                 }
                 Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
                     Image(systemName: "gearshape")
