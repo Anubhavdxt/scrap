@@ -9,7 +9,7 @@ final class DemoAssetsTests: XCTestCase {
     private var home: URL!
     private var pads: URL!
     private var oldHome: String?
-    private let keys = ["themeFamily", "appearance", "sayHiDone", "lastPad", "fontSize", "rendered", "tintFooter"]
+    private let keys = ["themeFamily", "appearance", "sayHiDone", "lastPad", "fontSize", "rendered"]
 
     override func setUpWithError() throws {
         home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-demo-\(UUID().uuidString)")

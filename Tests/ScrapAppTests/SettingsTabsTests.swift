@@ -31,11 +31,11 @@ final class SettingsTabsTests: XCTestCase {
     }
 
     /// The pane drawn in a window of the given height.
-    private func render(tab: String, height: CGFloat) throws -> NSBitmapImageRep {
+    private func render(tab: String, height: CGFloat, windowed: Bool = false) throws -> NSBitmapImageRep {
         UserDefaults.standard.set(tab, forKey: "settingsTab")
         let model = EditorModel()
         let size = CGSize(width: SettingsView.size.width, height: height)
-        let view = NSHostingView(rootView: SettingsView(model: model, height: height).frame(width: size.width, height: size.height))
+        let view = NSHostingView(rootView: SettingsView(model: model, height: height).environment(\.scrapWindowed, windowed).frame(width: size.width, height: size.height))
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = view
@@ -53,8 +53,8 @@ final class SettingsTabsTests: XCTestCase {
         for tab in Self.tabs {
             try render(tab: tab, height: SettingsView.size.height).representation(using: .png, properties: [:])!
                 .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab).png"))
-            try render(tab: tab, height: 1100).representation(using: .png, properties: [:])!
-                .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab)-tall.png"))
+            try render(tab: tab, height: SettingsView.size.height, windowed: true).representation(using: .png, properties: [:])!
+                .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(tab)-windowed.png"))
         }
     }
 

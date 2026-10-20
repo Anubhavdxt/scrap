@@ -31,7 +31,6 @@ struct ContentView: View {
     @AppStorage("colorHighlights") private var colorHighlights = true
     @AppStorage("colorChips") private var colorChips = true
     @AppStorage("markers") private var markers = "hide"
-    @AppStorage("tintFooter") private var tintFooter = true
     @AppStorage("vibrant") private var vibrant = false
     @AppStorage("customBullets") private var customBullets = ""
     @Environment(\.colorScheme) private var colorScheme
@@ -63,10 +62,9 @@ struct ContentView: View {
         .onChange(of: model.showSayHi) { _, open in if !open { refocus() } }
     }
 
-    /// The theme's background, with a little of the open pad's colour in it (Settings can turn that off).
+    /// The theme's background, with a little of the open pad's colour in it.
     private var footerBackground: Color {
         let base = NSColor(hex: theme.background)
-        guard tintFooter else { return Color(nsColor: Vibrancy.background(base, vibrant: vibrant)) }
         let tinted = FooterTint.color(background: base, pad: PadColors.nsColor(for: model.pad.number), strength: theme.isDark ? 0.18 : 0.14)
         return Color(nsColor: Vibrancy.background(tinted, vibrant: vibrant))
     }
@@ -149,6 +147,10 @@ struct TopBar: View {
                 }
                 .help(windowed ? "Hide the window" : "Close")
                 Spacer()
+                Button { model.showSearch = true } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .help("Search all pads (⌘K)")
                 if canAttach {
                     // Detach the popover into a window, or attach the window back to the menu bar icon.
                     Button { NotificationCenter.default.post(name: .toggleDetach, object: nil) } label: {

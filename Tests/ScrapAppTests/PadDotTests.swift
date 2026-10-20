@@ -91,14 +91,13 @@ final class PadDotSnapshotTests: XCTestCase {
         try Config.save(Config.File(folder: pads.path, pads: 7), home: home)
         for n in [1, 3, 4, 6] { try "pad \(n) has some text".write(to: pads.appendingPathComponent("\(n).md"), atomically: true, encoding: .utf8) }
         UserDefaults.standard.set(true, forKey: "sayHiDone")
-        defer { ["sayHiDone", "lastPad", "appearance", "themeFamily", "tintFooter"].forEach { UserDefaults.standard.removeObject(forKey: $0) } }
+        defer { ["sayHiDone", "lastPad", "appearance", "themeFamily"].forEach { UserDefaults.standard.removeObject(forKey: $0) } }
         try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
 
-        func shot(_ name: String, pad: Int, appearance: String, theme: String = "cobalt2", tint: Bool = true) throws {
+        func shot(_ name: String, pad: Int, appearance: String, theme: String = "cobalt2") throws {
             UserDefaults.standard.set(pad, forKey: "lastPad")
             UserDefaults.standard.set(appearance, forKey: "appearance")
             UserDefaults.standard.set(theme, forKey: "themeFamily")
-            UserDefaults.standard.set(tint, forKey: "tintFooter")
             let model = EditorModel()
             let size = CGSize(width: 520, height: 200)
             let view = NSHostingView(rootView: ContentView(model: model).frame(width: size.width, height: size.height))
@@ -113,6 +112,5 @@ final class PadDotSnapshotTests: XCTestCase {
         }
         try shot("dots-pad4-dark.png", pad: 4, appearance: "dark")
         try shot("dots-pad6-light.png", pad: 6, appearance: "light", theme: "one")
-        try shot("dots-pad4-untinted.png", pad: 4, appearance: "dark", tint: false)
     }
 }

@@ -49,6 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settingsPopover = NSPopover()
     private let symbolPopover = NSPopover()
     private lazy var windowController = EditorWindowController(model: EditorModel.shared)
+    /// Settings in a window of its own while the editor is a window; the popover is for the editor popover.
+    private lazy var settingsWindowController = SettingsWindowController(model: EditorModel.shared)
     private var clickMonitors: [Any] = []
     private var keyMonitor: Any?
     private var padObserver: AnyCancellable?
@@ -69,6 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         symbolPopover.contentViewController = hosting(SymbolPicker())
         symbolPopover.contentSize = SymbolPicker.size
         applyLayout()
+        windowController.onHide = { [weak self] in self?.settingsWindowController.hide() }
 
         let center = NotificationCenter.default
         center.addObserver(forName: NSPopover.willCloseNotification, object: popover, queue: .main) { [weak self] _ in
@@ -161,11 +164,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if new.showsStatusItem { ensureStatusItem() } else { removeStatusItem() }
         guard !initial, new.usesWindow != old.usesWindow else { return }
         if new.usesWindow, popover.isShown {
+            let hadSettings = settingsPopover.isShown
             closeTransient()
             windowController.show()
+            if hadSettings { settingsWindowController.show(beside: windowController.window) }
         } else if !new.usesWindow, windowController.isVisible {
-            windowController.hide()
+            let hadSettings = settingsWindowController.isVisible
+            windowController.hide()   // takes the settings window with it
             showPopover()
+            if hadSettings { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.presentSettings() } }
         }
     }
 
@@ -187,6 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsPopover.appearance = appearance
         symbolPopover.appearance = appearance
         windowController.applySettings()
+        settingsWindowController.applySettings()
     }
 
     // MARK: Menu bar icon
@@ -256,7 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openSettings() {
-        if !settingsPopover.isShown { toggleSettings() }
+        if !settingsVisible { toggleSettings() }
     }
 
     // MARK: Show and hide
@@ -310,7 +318,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if windowController.isVisible { windowController.hide() }
     }
 
+    private var settingsVisible: Bool { policy.usesWindow ? settingsWindowController.isVisible : settingsPopover.isShown }
+
     private func toggleSettings() {
+        if policy.usesWindow {
+            // The editor is a window, so settings is one too: it stays until its close button is pressed.
+            if settingsWindowController.isVisible { settingsWindowController.hide(); return }
+            symbolPopover.performClose(nil)
+            if !windowController.isVisible { windowController.show() }
+            settingsWindowController.show(beside: windowController.window)
+            return
+        }
         if settingsPopover.isShown {
             settingsPopover.performClose(nil)
             return
@@ -326,6 +344,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func presentSettings() {
+        if policy.usesWindow { return settingsWindowController.show(beside: windowController.window) }
         guard !settingsPopover.isShown else { return }
         let gear = SettingsAnchor.view.flatMap { $0.window?.isVisible == true ? $0 : nil }
         guard let anchor = gear ?? windowController.window?.contentView ?? statusItem?.button else { return }
@@ -383,6 +402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if self.symbolPopover.isShown { self.symbolPopover.performClose(nil); return nil }
                 if model.showSearch || model.showClear || model.showSayHi { return event }
                 if self.settingsPopover.isShown { self.settingsPopover.performClose(nil); return nil }
+                if self.settingsWindowController.isKey { self.settingsWindowController.hide(); return nil }
                 let editorKey = self.policy.usesWindow ? self.windowController.isKey : self.popover.isShown
                 guard editorKey else { return event }
                 // "Escape closes the window" can be turned off in Settings > General.

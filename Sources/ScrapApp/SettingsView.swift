@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Settings pane shown in a popover attached to the gear. Uses the selected editor theme.
 struct SettingsView: View {
-    static let size = CGSize(width: 440, height: 460)
+    static let size = CGSize(width: 440, height: 412)
 
     /// Four tabs, like Tot's: what you will touch most, how it looks, how it edits, and a page about scrap.
     private enum Tab: String, CaseIterable, Identifiable {
@@ -38,7 +38,6 @@ struct SettingsView: View {
     @AppStorage("showPadNumber") private var showPadNumber = false
     @AppStorage("vibrant") private var vibrant = false
     @AppStorage("appIcon") private var appIcon = AppIcons.default
-    @AppStorage("tintFooter") private var tintFooter = true
     @AppStorage("allowURLAdd") private var allowURLAdd = true
     @AppStorage("escCloses") private var escCloses = true
     @AppStorage("iconMode") private var iconMode = IconMode.menuBar
@@ -53,6 +52,8 @@ struct SettingsView: View {
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
     @State private var loginMessage: String?
     @Environment(\.colorScheme) private var colorScheme
+    /// In its own window (the editor is detached), the pane has a close button of its own instead of closing on a click away.
+    @Environment(\.scrapWindowed) private var windowed
 
     private var tab: Tab { Tab(rawValue: tabRaw) ?? .general }   // an old "Shortcuts" or "About" lands on General, where they went
 
@@ -92,6 +93,15 @@ struct SettingsView: View {
 
     private var tabBar: some View {
         HStack(spacing: 2) {
+            if windowed {
+                Button { NotificationCenter.default.post(name: .toggleSettings, object: nil) } label: {
+                    Image(systemName: "xmark.circle").font(.system(size: 16))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(dim)
+                .help("Close settings")
+                .padding(.leading, 6).padding(.trailing, 4)
+            }
             ForEach(Tab.allCases) { t in
                 let selected = tab == t
                 Button { select(t) } label: {
@@ -180,8 +190,6 @@ struct SettingsView: View {
             }
             row("Show or hide") { ShortcutRecorder(accent: accent, dim: dim) }
             if let error = hotkeys.error { note(error).foregroundStyle(.red) }
-            Divider().padding(.vertical, 2)
-            heading("Window")
             checks {
                 Toggle("Open as a window", isOn: Binding(get: { detached || iconMode == .dock }, set: { detached = $0 }))
                     .disabled(iconMode == .dock)
@@ -273,7 +281,6 @@ struct SettingsView: View {
             Divider().padding(.vertical, 2)
             checks {
                 Toggle("Vibrant (see-through)", isOn: $vibrant).help("Lets the desktop show through, blurred.")
-                Toggle("Tint the footer", isOn: $tintFooter).help("With the open pad's colour.")
                 Toggle("Pad number in its dot", isOn: $showPadNumber)
             }
             row("Dock icon") { iconPicker }.help("Changes the Dock icon while scrap runs; Finder keeps the original.")
@@ -291,11 +298,14 @@ struct SettingsView: View {
                     ForEach(EditorFont.families, id: \.self) { Text($0).tag($0) }
                 }
                 .labelsHidden()
-                .frame(width: 150)
+                .frame(width: 140)
                 .help("Code and raw text are always monospaced.")
-                Stepper(value: $fontSize, in: EditorFont.sizeRange, step: 1) { Text("\(Int(fontSize)) pt").monospacedDigit() }
-                    .help("⌘+ ⌘− ⌘0 change the size from the keyboard.")
-                if fontSize != EditorFont.defaultSize { Button("Reset") { fontSize = EditorFont.defaultSize }.controlSize(.small) }
+                Stepper(value: $fontSize, in: EditorFont.sizeRange, step: 1) { Text("\(Int(fontSize))").monospacedDigit().fixedSize() }
+                    .help("Size in points. ⌘+ ⌘− ⌘0 change it from the keyboard.")
+                if fontSize != EditorFont.defaultSize {
+                    Button { fontSize = EditorFont.defaultSize } label: { Image(systemName: "arrow.counterclockwise") }
+                        .controlSize(.small).help("Back to \(Int(EditorFont.defaultSize)) pt")
+                }
             }
             row("Markdown marks") {
                 Picker("", selection: $markers) {
@@ -378,7 +388,7 @@ struct SettingsView: View {
     // MARK: About
 
     private var about: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(LinearGradient(colors: [accent.opacity(0.32), accent.opacity(0.06)], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -394,7 +404,7 @@ struct SettingsView: View {
                 }
                 .padding(16)
             }
-            .frame(height: 112)
+            .frame(height: 100)
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 linkTile("star.fill", "Star on GitHub", "It helps others find it") { open("https://github.com/Anubhavdxt/scrap") }
