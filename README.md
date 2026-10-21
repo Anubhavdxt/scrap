@@ -44,14 +44,14 @@ Requires macOS 14 or later.
 
 `scrap link` links the app into `/Applications`. It only ever replaces its own link, never a real `Scrap.app`. To remove everything, run `scrap uninstall`: it takes the link out and then runs `brew uninstall scrap` (your pads stay where they are). `scrap unlink` alone only removes the link.
 
-Nothing is compiled on your Mac, so neither Xcode nor the Command Line Tools are needed. Homebrew installs the universal (Apple silicon and Intel) build that GitHub Actions makes from the tagged source when a release is published; Homebrew doesn't quarantine what it downloads, so there is no Gatekeeper warning. The build carries a provenance attestation: for a copy downloaded from the Releases page, `gh attestation verify scrap-<version>-macos.tar.gz --repo Anubhavdxt/scrap` checks it came from this repo's workflow. (Opening that copy by double-click needs the usual right-click > Open, because the app isn't notarized.)
+Nothing is compiled on your Mac, so neither Xcode nor the Command Line Tools are needed (`brew install --HEAD scrap` builds from source with just the Command Line Tools). Homebrew installs the universal (Apple silicon and Intel) build that GitHub Actions makes from the tagged source when a release is published; Homebrew doesn't quarantine what it downloads, so there is no Gatekeeper warning. The build carries a provenance attestation: for a copy downloaded from the Releases page, `gh attestation verify scrap-<version>-macos.tar.gz --repo Anubhavdxt/scrap` checks it came from this repo's workflow. (Opening that copy by double-click needs the usual right-click > Open, because the app isn't notarized.)
 
 ### From source
 
     git clone https://github.com/Anubhavdxt/scrap.git
     cd scrap && make install
 
-Building from source needs the full Xcode, not just the Command Line Tools (SwiftUI's macros come with Xcode). `make install` puts `Scrap.app` in `/Applications` and the CLI at `/usr/local/bin/scrap`. `make uninstall` removes both.
+Building from source needs only the Xcode Command Line Tools (`xcode-select --install`). `make install` puts `Scrap.app` in `/Applications` and the CLI at `/usr/local/bin/scrap`. `make uninstall` removes both.
 
 ## Use
 

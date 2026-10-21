@@ -46,10 +46,10 @@ struct SettingsView: View {
     @AppStorage("windowCols") private var cols = WindowSize.defaultCols
     @AppStorage("windowRows") private var rows = WindowSize.defaultRows
     @AppStorage("settingsTab") private var tabRaw = Tab.general.rawValue
-    @State private var hovered: Tab?
-    @State private var bulletsOpen = false
-    @State private var launchAtLogin = LaunchAtLogin.isEnabled
-    @State private var loginMessage: String?
+    @Local private var hovered: Tab?
+    @Local private var bulletsOpen = false
+    @Local private var launchAtLogin = LaunchAtLogin.isEnabled
+    @Local private var loginMessage: String?
     @Environment(\.colorScheme) private var colorScheme
     /// In its own window (the editor is detached), the pane has a close button of its own instead of closing on a click away.
     @Environment(\.scrapWindowed) private var windowed
@@ -534,7 +534,7 @@ struct ShortcutRecorder: View {
     let accent: Color
     let dim: Color
     @ObservedObject private var manager = HotKeyManager.shared
-    @State private var monitor: Any?
+    @Local private var monitor: Any?
 
     var body: some View {
         HStack(spacing: 8) {

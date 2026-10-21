@@ -27,7 +27,7 @@ app: build
 	$(call assemble_app,$(APP),.build/release/ScrapApp)
 
 # The release build the Homebrew formula installs: universal (Apple silicon and Intel), packed as
-# scrap-<version>-macos.tar.gz holding bin/scrap and Scrap.app. Built by CI on a tag; needs Xcode.
+# scrap-<version>-macos.tar.gz holding bin/scrap and Scrap.app. Built by CI when a release is published.
 dist: ARCHS = --arch arm64 --arch x86_64
 dist:
 	swift build -c release $(ARCHS) $(SWIFTFLAGS)

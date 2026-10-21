@@ -10,9 +10,9 @@ struct CustomBulletsEditor: View {
     }
 
     @AppStorage("customBullets") private var stored = ""
-    @State private var rows: [Row] = []
-    @State private var message: String?
-    @State private var loaded = false
+    @Local private var rows: [Row] = []
+    @Local private var message: String?
+    @Local private var loaded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
