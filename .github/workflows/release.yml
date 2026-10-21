@@ -1,0 +1,43 @@
+name: Release
+
+# When a release is published, build the app on a GitHub runner from the tagged source and attach it. The Homebrew
+# formula installs this build, so nobody needs Xcode (or even the Command Line Tools) to install scrap.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write       # attach the build to the release
+      id-token: write       # sign the build provenance
+      attestations: write
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - name: Build
+        run: make dist
+      - name: Check the build is the tagged version
+        run: |
+          archive="build/dist/scrap-${TAG#v}-macos.tar.gz"
+          test -f "$archive" || { echo "expected $archive: does the tag $TAG match the version in the source?"; exit 1; }
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          test "$("$RUNNER_TEMP/scrap-${TAG#v}/bin/scrap" --version)" = "scrap ${TAG#v}"
+          lipo -info "$RUNNER_TEMP/scrap-${TAG#v}/bin/scrap" | grep -q arm64
+          lipo -info "$RUNNER_TEMP/scrap-${TAG#v}/bin/scrap" | grep -q x86_64
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: build/dist/scrap-*-macos.tar.gz
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" build/dist/scrap-*-macos.tar.gz build/dist/scrap-*-macos.tar.gz.sha256 --clobber

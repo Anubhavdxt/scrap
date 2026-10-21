@@ -61,6 +61,8 @@ v1 plan (Mac only, free, Markdown files, Swift/SwiftUI + AppKit). Work on featur
 
 - [x] `scrap uninstall`: removes the Applications link, then `brew uninstall scrap` (formulae have no uninstall hook)
 
+- [x] Prebuilt release: CI builds the universal app on a tag and the formula installs it (the SwiftUI macros in the macOS 27 SDK come only with Xcode, so a source build failed with just the Command Line Tools)
+
 ## Housekeeping
 - [ ] Verify conflict handling on two real Macs (iCloud's conflict file naming is assumed, see ConflictResolver)
 - [ ] Add a bypass for the repo owner to the `protect-main` ruleset (owner does this in Settings)
