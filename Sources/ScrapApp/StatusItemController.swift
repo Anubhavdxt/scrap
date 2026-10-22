@@ -196,17 +196,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// The top bar of the popover was dragged away from the menu bar icon: the editor becomes a window with its top bar
-    /// under the pointer, and the drag carries on moving that window.
+    /// under the pointer, and keeps following the pointer until the button is released.
     private func detachByDrag() {
         guard policy.canAttach, !policy.usesWindow else { return }
         let pointer = NSEvent.mouseLocation
         UserDefaults.standard.set(true, forKey: "detached")   // applyPolicy swaps the popover for the window
         windowController.show(near: pointer)
-        guard let window = windowController.window,
-              let press = NSEvent.mouseEvent(with: .leftMouseDown, location: window.convertPoint(fromScreen: pointer), modifierFlags: [],
-                                             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-                                             context: nil, eventNumber: 0, clickCount: 1, pressure: 1) else { return }
-        window.performDrag(with: press)
+        guard let window = windowController.window else { return }
+        WindowFollower.follow(window, nextEvent: { WindowFollower.nextMouseEvent() })
     }
 
     /// Applies the saved window size and light/dark choice.

@@ -25,6 +25,15 @@ final class SearchBlurTests: XCTestCase {
     }
 
     func testTheEditorBehindTheSearchPanelIsSlightlyBlurred() throws {
+        try checkBlur { $0.showSearch = $1 }
+    }
+
+    func testTheEditorBehindSayHiIsBlurredTheSame() throws {
+        try checkBlur { $0.showSayHi = $1 }
+    }
+
+    /// Opens a panel over the editor with `toggle(model, true)` and closes it with `toggle(model, false)`.
+    private func checkBlur(_ toggle: (EditorModel, Bool) -> Void) throws {
         let home = FileManager.default.temporaryDirectory.appendingPathComponent("scrap-blur-\(UUID().uuidString)")
         let pads = home.appendingPathComponent("pads")
         try FileManager.default.createDirectory(at: pads, withIntermediateDirectories: true)
@@ -60,12 +69,12 @@ final class SearchBlurTests: XCTestCase {
         // Text lines below the search panel (which sits near the top) and above the end of the text, whatever the scale.
         let rows = Int(Double(first.pixelsHigh) * 0.47)...Int(Double(first.pixelsHigh) * 0.60)
         let sharp = sharpness(first, rows: rows)
-        model.showSearch = true
+        toggle(model, true)
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))
         let blurredPicture = try picture()
         let blurred = sharpness(blurredPicture, rows: rows)
         XCTAssertLessThan(blurred, sharp * 0.8, "the text behind the search panel should be softer (sharpness \(sharp) -> \(blurred))")
-        model.showSearch = false
+        toggle(model, false)
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))
         XCTAssertEqual(sharpness(try picture(), rows: rows), sharp, accuracy: 0.05, "and gets it back when the panel closes")
     }

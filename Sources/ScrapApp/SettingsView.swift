@@ -1,5 +1,6 @@
 import AppKit
 import ScrapCore
+import ServiceManagement
 import SwiftUI
 
 /// Settings pane shown in a popover attached to the gear. Uses the selected editor theme.
@@ -84,6 +85,20 @@ struct SettingsView: View {
             footer
         }
         .background { tabShortcuts }
+        .overlay(alignment: .bottom) {
+            // A short confirmation floats above the footer, so it never pushes the settings around.
+            if let loginMessage {
+                Text(loginMessage)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .padding(.horizontal, 12).padding(.vertical, 7)
+                    .background(Capsule().fill(.regularMaterial))
+                    .overlay(Capsule().strokeBorder(dim.opacity(0.25)))
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+                    .padding(.bottom, 42)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: loginMessage)
         .frame(width: Self.size.width, height: height)
         // In a window the content runs under the transparent title bar, so the pane must not leave room for it.
         .ignoresSafeArea(.container, edges: windowed ? .top : [])
@@ -251,18 +266,22 @@ struct SettingsView: View {
                 .controlSize(.large)
                 .keyboardShortcut("q", modifiers: .command)
             }
-            if let loginMessage { note(loginMessage).padding(.leading, 0) }
         }
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
         do {
             try LaunchAtLogin.set(on)
-            loginMessage = LaunchAtLogin.needsApproval ? "Approve scrap in System Settings → General → Login Items." : nil
+            loginMessage = LaunchAtLogin.message(requested: on, status: SMAppService.mainApp.status)
         } catch {
             loginMessage = "Couldn't change it: \(error.localizedDescription). This only works for the installed Scrap.app."
         }
         launchAtLogin = LaunchAtLogin.isEnabled || LaunchAtLogin.needsApproval
+        // The note is a confirmation, so it fades after a few seconds (unless it is asking you to approve something).
+        let shown = loginMessage
+        if !LaunchAtLogin.needsApproval {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { if loginMessage == shown { loginMessage = nil } }
+        }
     }
 
     private func chooseFolder() {
