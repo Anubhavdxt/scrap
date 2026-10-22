@@ -1,18 +1,24 @@
 class Scrap < Formula
   desc "Free, open-source, keyboard-first scratchpad for the macOS menu bar"
   homepage "https://github.com/Anubhavdxt/scrap"
-  url "https://github.com/Anubhavdxt/scrap/archive/refs/tags/v0.4.0.tar.gz"
-  sha256 "a9a226cf090b7f1814b55b27e773d2289625b2bcf4c6351a29f639a341274df9"
+  url "https://github.com/Anubhavdxt/scrap/releases/download/v0.4.1/scrap-0.4.1-macos.tar.gz"
+  sha256 "3e454b7d19a21263936bdd2e283a1a91cb808948f61003388665eb9443230999"
   license "MIT"
   head "https://github.com/Anubhavdxt/scrap.git", branch: "main"
 
   depends_on macos: :sonoma
 
   def install
-    # Built from source on the user's Mac: no download quarantine, so no Gatekeeper warning.
-    system "make", "app", "SWIFTFLAGS=--disable-sandbox"
-    bin.install ".build/release/scrap-cli" => "scrap"
-    prefix.install "build/Scrap.app"
+    if build.head?
+      # Builds with just the Command Line Tools (the app doesn't use SwiftUI's @State macro, which needs Xcode).
+      system "make", "app", "SWIFTFLAGS=--disable-sandbox"
+      bin.install ".build/release/scrap-cli" => "scrap"
+      prefix.install "build/Scrap.app"
+    else
+      # The release build GitHub Actions made from the tag: universal, ad-hoc signed, nothing compiled here.
+      bin.install "bin/scrap"
+      prefix.install "Scrap.app"
+    end
   end
 
   def caveats
