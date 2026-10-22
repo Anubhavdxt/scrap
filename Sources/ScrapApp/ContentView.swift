@@ -21,8 +21,8 @@ func resolveTheme(family: String, appearance: Appearance, colorScheme: ColorSche
 }
 
 struct ContentView: View {
-    /// Blur radius, in points, of the editor behind an open search panel.
-    static let searchBlur: CGFloat = 1.2
+    /// Blur radius, in points, of the editor behind a panel that sits over it (search, Say hi, the clear confirmation).
+    static let overlayBlur: CGFloat = 0.6
     @ObservedObject var model: EditorModel
     @AppStorage("themeFamily") private var family = "cobalt2"
     @AppStorage("appearance") private var appearance = Appearance.auto
@@ -38,6 +38,8 @@ struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scrapWindowed) private var windowed
 
+    private var overlayOpen: Bool { model.showSearch || model.showSayHi || model.showClear }
+
     private var theme: Theme { resolveTheme(family: family, appearance: appearance, colorScheme: colorScheme) }
 
     var body: some View {
@@ -48,15 +50,15 @@ struct ContentView: View {
             EditorView(text: $model.text, theme: theme, fontSize: fontSize, fontFamily: fontFamily, wrap: wrapLines,
                        colorHighlights: colorHighlights, colorChips: colorChips, markers: markers, rendered: rendered,
                        selectionColor: PadColors.nsColor(for: model.pad.number), selection: $model.selection, customBullets: customBullets,
-                       vibrant: vibrant, blur: model.showSearch ? Self.searchBlur : 0)
+                       vibrant: vibrant, blur: overlayOpen ? Self.overlayBlur : 0)
             Divider()
             StatusLine(model: model)
                 .background(footerBackground)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // A touch of blur on what is behind the search panel, so it reads as the thing in front.
-        .blur(radius: model.showSearch ? Self.searchBlur : 0)
-        .animation(.easeOut(duration: 0.15), value: model.showSearch)
+        .blur(radius: overlayOpen ? Self.overlayBlur : 0)
+        .animation(.easeOut(duration: 0.15), value: overlayOpen)
         // In a window the content runs under the (empty, transparent) title strip, so the top bar is the only bar.
         .ignoresSafeArea(.container, edges: windowed ? .top : [])
         .background { if vibrant { VibrantBackdrop() } }
