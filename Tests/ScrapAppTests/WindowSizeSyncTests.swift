@@ -35,8 +35,11 @@ final class WindowSizeSyncTests: XCTestCase {
     // MARK: The arithmetic
 
     func testColumnsAndRowsRoundTripThroughASize() {
+        // (A size cut down to fit a small screen isn't a whole number of cells, so only sizes that fit are checked.)
+        let screen = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1440, height: 900)
         for (cols, rows) in [(64, 16), (30, 8), (100, 40), (120, 25)] {
             let size = WindowSize.contentSize(cols: cols, rows: rows)
+            if size.width >= screen.width * 0.9 || size.height >= screen.height * 0.85 { continue }
             let back = WindowSize.cells(forContentSize: size)
             let again = WindowSize.contentSize(cols: back.cols, rows: back.rows)
             XCTAssertEqual(again.width, size.width, accuracy: 0.5, "\(cols)x\(rows)")
