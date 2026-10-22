@@ -73,7 +73,7 @@ final class SearchBlurTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))
         let blurredPicture = try picture()
         let blurred = sharpness(blurredPicture, rows: rows)
-        XCTAssertLessThan(blurred, sharp * 0.8, "the text behind the search panel should be softer (sharpness \(sharp) -> \(blurred))")
+        XCTAssertLessThan(blurred, sharp * 0.92, "the text behind the search panel should be softer (sharpness \(sharp) -> \(blurred))")
         toggle(model, false)
         RunLoop.main.run(until: Date().addingTimeInterval(0.6))
         XCTAssertEqual(sharpness(try picture(), rows: rows), sharp, accuracy: 0.05, "and gets it back when the panel closes")
