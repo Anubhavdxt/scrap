@@ -99,9 +99,11 @@ public enum MarkdownHighlighter {
     private static let listItem = try! NSRegularExpression(pattern: #"^([ \t]*)([-*+]|\d{1,9}[.)])([ \t]+)(\[[ xX]\][ \t]+)?"#)
     private static let rule = try! NSRegularExpression(pattern: "^ {0,3}(?:(?:-\\s*){3,}|(?:\\*\\s*){3,}|(?:_\\s*){3,})$")
     private static let inlineCode = try! NSRegularExpression(pattern: "(`+)(?:(?!\\1).)+?\\1")
-    private static let bold = try! NSRegularExpression(pattern: "(\\*\\*|__)(?=\\S)(.+?)(?<=\\S)\\1")
+    // A space before the closing `**` still counts ("**title **"): people type it, and the result is what they meant.
+    // (`__` keeps the strict rule.)
+    private static let bold = try! NSRegularExpression(pattern: "(\\*\\*)(?=\\S)(.+?)(?<=\\S)[ \\t]*\\*\\*|(__)(?=\\S)(.+?)(?<=\\S)__")
     private static let boldItalic = try! NSRegularExpression(pattern: "(\\*\\*\\*|___)(?=\\S)(.+?)(?<=\\S)\\1")
-    private static let italicStar = try! NSRegularExpression(pattern: "(?<!\\*)\\*(?=[^\\s*])(.+?)(?<=[^\\s*])\\*(?!\\*)")
+    private static let italicStar = try! NSRegularExpression(pattern: "(?<!\\*)\\*(?=[^\\s*])(.+?)(?<=[^\\s*])[ \\t]*\\*(?!\\*)")
     private static let italicUnderscore = try! NSRegularExpression(pattern: "(?<!\\w)_(?=[^\\s_])(.+?)(?<=[^\\s_])_(?!\\w)")
     /// `#RRGGBB` and `#RRGGBBAA` anywhere; `#RGB` and `#RGBA` too, but only inside backticks (bare `#123` is usually an issue number).
     private static let longColor = try! NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_&#/])#([0-9A-Fa-f]{8}|[0-9A-Fa-f]{6})(?![\p{L}\p{N}_])"#)

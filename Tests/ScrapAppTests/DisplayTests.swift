@@ -86,7 +86,8 @@ final class EditorWindowControllerTests: XCTestCase {
         let expected = WindowSize.current()
         XCTAssertEqual(window.contentLayoutRect.size.width, expected.width, accuracy: 2)
         XCTAssertEqual(window.contentLayoutRect.size.height, expected.height, accuracy: 40, "titlebar area is part of the content")
-        XCTAssertGreaterThanOrEqual(window.minSize.width, 300)
+        let smallest = WindowSize.contentSize(cols: WindowSize.colsRange.lowerBound, rows: WindowSize.rowsRange.lowerBound)
+        XCTAssertEqual(window.contentMinSize.width, smallest.width, accuracy: 1, "it can shrink to the smallest size Settings allows, and no further")
     }
 
     func testClosingHidesTheWindowAndShowBringsItBack() throws {
