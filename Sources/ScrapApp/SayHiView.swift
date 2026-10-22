@@ -8,11 +8,11 @@ struct SayHiView: View {
     @ObservedObject var model: EditorModel
     let theme: Theme
 
-    @State private var name = ""
-    @State private var email = ""
-    @State private var message = ""
-    @State private var emailError = false
-    @State private var thanks = false
+    @Local private var name = ""
+    @Local private var email = ""
+    @Local private var message = ""
+    @Local private var emailError = false
+    @Local private var thanks = false
     @FocusState private var focused: Field?
     private enum Field { case name, email, message }
 

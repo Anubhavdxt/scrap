@@ -220,7 +220,7 @@ enum DetachDrag {
 
 struct PadDots: View {
     @ObservedObject var model: EditorModel
-    @State private var hovered: Int?
+    @Local private var hovered: Int?
     @AppStorage("showPadNumber") private var showNumber = false
 
     var body: some View {

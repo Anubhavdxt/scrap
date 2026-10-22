@@ -8,7 +8,7 @@ struct SymbolPicker: View {
     /// The popover's content size.
     static let size = CGSize(width: 316, height: 360)
 
-    @State private var hovered: String?
+    @Local private var hovered: String?
     /// Your own smart bullets, listed after the built-in ones.
     @AppStorage("customBullets") private var customBullets = ""
 
