@@ -56,7 +56,39 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
         if let window { applySettings(to: window) }
     }
 
+    // MARK: Size
+
+    /// The window is as big as Settings says (columns by rows), like the popover. Changing the steppers or the font moves
+    /// it to the new size, with its top-left corner staying put.
+    func syncSize() {
+        guard let window, !window.inLiveResize else { return }
+        let wanted = WindowSize.current()
+        let current = window.contentRect(forFrameRect: window.frame).size
+        guard abs(current.width - wanted.width) > 0.5 || abs(current.height - wanted.height) > 0.5 else { return }
+        resize(window, toContentSize: wanted)
+    }
+
+    private func resize(_ window: NSWindow, toContentSize size: CGSize) {
+        let top = window.frame.maxY
+        var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: size))
+        frame.origin = NSPoint(x: window.frame.minX, y: top - frame.height)
+        window.setFrame(frame, display: true)
+    }
+
     // MARK: NSWindowDelegate
+
+    /// Dragging an edge steps by whole columns and rows.
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        let content = sender.contentRect(forFrameRect: NSRect(origin: .zero, size: frameSize)).size
+        return sender.frameRect(forContentRect: NSRect(origin: .zero, size: WindowSize.snapped(content))).size
+    }
+
+    /// Letting go of an edge writes the new columns and rows to Settings, which the popover and the steppers read.
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        let cells = WindowSize.cells(forContentSize: window.contentRect(forFrameRect: window.frame).size)
+        WindowSize.store(cols: cells.cols, rows: cells.rows)
+    }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         hide()
@@ -87,9 +119,10 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
         host.sizingOptions = []
         window.contentViewController = host
         window.setContentSize(size)
-        window.minSize = NSSize(width: 300, height: 200)
+        window.contentMinSize = WindowSize.contentSize(cols: WindowSize.colsRange.lowerBound, rows: WindowSize.rowsRange.lowerBound)
         window.center()
-        window.setFrameAutosaveName("ScrapEditorWindow") // restores the last size and place when there is one
+        window.setFrameAutosaveName("ScrapEditorWindow") // restores the last place (the size comes from Settings, below)
+        resize(window, toContentSize: size)
         window.delegate = self
         window.title = model.pad.name
         titleObserver = model.$pad.sink { [weak window] pad in window?.title = pad.name }
@@ -98,6 +131,7 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     }
 
     private func applySettings(to window: NSWindow) {
+        syncSize()
         window.level = UserDefaults.standard.bool(forKey: "windowFloating") ? .floating : .normal
         let vibrant = UserDefaults.standard.bool(forKey: "vibrant")
         window.isOpaque = !vibrant

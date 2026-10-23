@@ -16,6 +16,22 @@ final class LiveMarkdownTests: XCTestCase {
         XCTAssertEqual(syntax("a ``b ` c`` d"), ["``", "``"], "longer backtick runs")
     }
 
+    func testASpaceBeforeTheClosingStarsStillMakesItBoldOrItalic() {
+        let source = "**Lerna version update ** next"
+        let bold = spans(source).first { $0.bold }
+        XCTAssertEqual(bold.map { text($0, source) }, "**Lerna version update **")
+        XCTAssertEqual(syntax(source), ["**", "**"], "only the stars are marks; the space stays text")
+        let italic = spans("*one two * next").first { $0.italic }
+        XCTAssertNotNil(italic)
+    }
+
+    func testStarsWithSpacesOnTheOutsideAreStillPlainText() {
+        XCTAssertNil(spans("2 * 3 * 4").first { $0.italic }, "a space after the opening star means it isn't emphasis")
+        XCTAssertNil(spans("a ** b ** c").first { $0.bold })
+        XCTAssertNil(spans("a __b __ c").first { $0.bold }, "double underscores keep the strict rule")
+        XCTAssertTrue(spans("a **b** c").contains { $0.bold }, "the usual form is unchanged")
+    }
+
     func testStrikethroughIsStruckAndDimmed() {
         let source = "x ~~gone~~ y"
         let struck = spans(source).first { $0.strike }

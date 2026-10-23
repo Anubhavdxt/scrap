@@ -29,6 +29,28 @@ enum WindowSize {
         return size
     }
 
+    /// The columns and rows whose window is closest to `size` (the inverse of `contentSize`), within the allowed ranges.
+    static func cells(forContentSize size: CGSize) -> (cols: Int, rows: Int) {
+        let font = EditorFont.current
+        let cell = EditorFont.cellWidth(font)
+        let line = NSLayoutManager().defaultLineHeight(for: font)
+        let cols = Int(((size.width - 2 * (textInset + linePadding)) / cell).rounded())
+        let rows = Int(((size.height - 2 * textInset - topBar - statusLine - dividers) / line).rounded())
+        return (min(max(cols, colsRange.lowerBound), colsRange.upperBound), min(max(rows, rowsRange.lowerBound), rowsRange.upperBound))
+    }
+
+    /// `size` rounded to a whole number of columns and rows, as a terminal's window is.
+    static func snapped(_ size: CGSize) -> CGSize {
+        let cells = cells(forContentSize: size)
+        return contentSize(cols: cells.cols, rows: cells.rows)
+    }
+
+    /// Remembers a size chosen by resizing the window, so the popover and the Settings steppers follow it.
+    static func store(cols: Int, rows: Int, defaults: UserDefaults = .standard) {
+        if defaults.object(forKey: "windowCols") as? Int != cols { defaults.set(cols, forKey: "windowCols") }
+        if defaults.object(forKey: "windowRows") as? Int != rows { defaults.set(rows, forKey: "windowRows") }
+    }
+
     static func current(_ defaults: UserDefaults = .standard) -> CGSize {
         let cols = defaults.object(forKey: "windowCols") as? Int ?? defaultCols
         let rows = defaults.object(forKey: "windowRows") as? Int ?? defaultRows
