@@ -1,5 +1,5 @@
 import Foundation
 
 public enum Scrap {
-    public static let version = "0.4.1"
+    public static let version = "0.4.2"
 }
