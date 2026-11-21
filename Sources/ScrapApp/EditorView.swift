@@ -78,6 +78,7 @@ struct EditorView: NSViewRepresentable {
         tv.isAutomaticSpellingCorrectionEnabled = false
         tv.textContainerInset = NSSize(width: 12, height: 12)
         tv.string = text
+        context.coordinator.lastText = text
         context.coordinator.apply(theme, to: tv, force: true)
         context.coordinator.focusObserver = NotificationCenter.default.addObserver(forName: .focusEditor, object: nil, queue: .main) { [weak tv] _ in
             tv.flatMap { $0.window?.makeFirstResponder($0) }
@@ -113,8 +114,17 @@ struct EditorView: NSViewRepresentable {
         context.coordinator.setBlur(blur, on: scroll)
         let tv = scroll.documentView as! NSTextView
         context.coordinator.parent = self
-        if tv.string != text {
+        let externalChange = text != context.coordinator.lastText
+        // Never overwrite `tv.string` while an IME is composing (setMarkedText changes `tv.string` without firing `textDidChange`).
+        if (!tv.hasMarkedText() && tv.string != text) || externalChange {
+            context.coordinator.isUpdatingFromModel = true
+            defer { context.coordinator.isUpdatingFromModel = false }
+            if tv.hasMarkedText() {
+                tv.inputContext?.discardMarkedText()
+                tv.unmarkText()
+            }
             let selection = tv.selectedRange()
+            context.coordinator.lastText = text
             tv.string = text
             tv.setSelectedRange(NSRange(location: min(selection.location, (text as NSString).length), length: 0))
             context.coordinator.highlight(tv)
@@ -124,6 +134,9 @@ struct EditorView: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTextViewDelegate, NSLayoutManagerDelegate {
         var parent: EditorView
+        var lastText = ""
+        var isUpdatingFromModel = false
+        private var needsFullHighlight = false
         private var appliedTheme: String?
         /// The prose font; raw mode is monospaced.
         private var baseFont: NSFont {
@@ -174,9 +187,13 @@ struct EditorView: NSViewRepresentable {
         }
 
         func textDidChange(_ notification: Notification) {
-            guard let tv = notification.object as? NSTextView else { return }
+            guard let tv = notification.object as? NSTextView, !isUpdatingFromModel, !tv.hasMarkedText() else { return }
+            lastText = tv.string
             parent.text = tv.string
-            highlight(tv, edited: true)
+            syncSelection(tv)
+            let edited = !needsFullHighlight
+            needsFullHighlight = false
+            highlight(tv, edited: edited)
         }
 
         /// List editing: Return continues a list, Tab and Shift-Tab indent list items.
@@ -303,6 +320,10 @@ struct EditorView: NSViewRepresentable {
 
         /// Re-styles the whole text (after an edit or a settings change).
         func highlight(_ tv: NSTextView, edited: Bool = false) {
+            guard !tv.hasMarkedText() else {
+                needsFullHighlight = true
+                return
+            }
             guard let storage = tv.textStorage else { return }
             let style = self.style
             if let lm = tv.layoutManager as? ScrapLayoutManager {
@@ -346,11 +367,8 @@ struct EditorView: NSViewRepresentable {
         /// Moving the caret to another paragraph shows that paragraph's Markdown syntax and hides the previous one's.
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView, let storage = tv.textStorage else { return }
-            if let binding = parent.selection {
-                let range = tv.selectedRange()
-                // Deferred: this can fire while SwiftUI is updating views.
-                DispatchQueue.main.async { if binding.wrappedValue != range { binding.wrappedValue = range } }
-            }
+            guard !tv.hasMarkedText() else { return }
+            syncSelection(tv)
             guard parent.rendered, !spans.isEmpty, spansText == storage.string else { return }
             let now = paragraphs(of: tv.selectedRange(), in: storage)
             guard now != revealed else { return }
@@ -361,6 +379,13 @@ struct EditorView: NSViewRepresentable {
                 MarkdownStyler.apply(spans, to: storage, range: range, reveal: now, style: style)
             }
             refreshDisplay(tv)
+        }
+
+        private func syncSelection(_ tv: NSTextView) {
+            guard let binding = parent.selection else { return }
+            let range = tv.selectedRange()
+            // Deferred: this can fire while SwiftUI is updating views.
+            DispatchQueue.main.async { if binding.wrappedValue != range { binding.wrappedValue = range } }
         }
 
         private func paragraphs(of selection: NSRange, in storage: NSTextStorage) -> NSRange {

@@ -434,6 +434,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             MainActor.assumeIsolated {
                 guard event.keyCode == 53, !HotKeyManager.shared.isRecording, let self else { return event }
+                if let input = NSApp.keyWindow?.firstResponder as? NSTextInputClient, input.hasMarkedText() { return event }
                 let model = EditorModel.shared
                 if self.symbolPopover.isShown { self.symbolPopover.performClose(nil); return nil }
                 if model.showSearch || model.showClear || model.showSayHi { return event }
@@ -462,7 +463,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func installClickMonitors() {
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown], handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.closeTransient() }
+            MainActor.assumeIsolated {
+                // Keep the popover open when clicking inside an IME candidate panel while composing.
+                if let input = NSApp.keyWindow?.firstResponder as? NSTextInputClient, input.hasMarkedText() { return }
+                self?.closeTransient()
+            }
         }) { clickMonitors.append(global) }
         if let click = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] event in
             MainActor.assumeIsolated {
