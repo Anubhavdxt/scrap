@@ -25,7 +25,8 @@ struct SearchField: NSViewRepresentable {
 
     func updateNSView(_ field: NSTextField, context: Context) {
         context.coordinator.parent = self
-        if field.stringValue != text { field.stringValue = text }
+        let editor = field.currentEditor() as? NSTextView
+        if editor?.hasMarkedText() != true, field.stringValue != text { field.stringValue = text }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -39,6 +40,7 @@ struct SearchField: NSViewRepresentable {
         }
 
         func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            guard !textView.hasMarkedText() else { return false }
             switch selector {
             case #selector(NSResponder.moveDown(_:)): parent.onMove(1)
             case #selector(NSResponder.moveUp(_:)): parent.onMove(-1)
